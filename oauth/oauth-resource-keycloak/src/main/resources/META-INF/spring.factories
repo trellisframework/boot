@@ -1,0 +1,1 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=net.trellisframework.oauth.resource.keycloak.configuration.OAuth2ResourceServerConfig
