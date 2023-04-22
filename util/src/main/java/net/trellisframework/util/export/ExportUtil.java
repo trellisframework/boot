@@ -39,17 +39,19 @@ public class ExportUtil {
         }
 
         public static File export(String path, List<?> list, String fileName, String font) {
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".pdf")), list, font);
+        }
+
+        public static File export(File file, List<?> list, String font) {
             try {
                 Font normal = FontFactory.getFont(font, BaseFont.IDENTITY_H, 8);
-                File excel = Excel.export(path, fileName, "Sheet1", list);
+                File excel = Excel.export(file.getParent(), file.getName(), "Sheet1", list);
                 FileInputStream input_document = new FileInputStream(excel);
-                String fullFileName = FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".pdf");
-                File file = new File(fullFileName);
                 XSSFWorkbook my_xls_workbook = new XSSFWorkbook(input_document);
                 XSSFSheet my_worksheet = my_xls_workbook.getSheetAt(0);
                 Iterator<Row> rowIterator = my_worksheet.iterator();
                 Document iText_xls_2_pdf = new Document();
-                PdfWriter.getInstance(iText_xls_2_pdf, new FileOutputStream(fullFileName));
+                PdfWriter.getInstance(iText_xls_2_pdf, new FileOutputStream(file));
                 iText_xls_2_pdf.open();
                 PdfPTable my_table = new PdfPTable(getColumnName(list).size());
                 my_table.setWidthPercentage(100);
@@ -87,9 +89,11 @@ public class ExportUtil {
         }
 
         public static File export(String path, String fileName, String sheetName, List<?> list) {
-            String fullFileName = FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".xlsx");
-            File file = new File(fullFileName);
-            getWorkbook(file, sheetName, list);
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".xlsx")), sheetName, list);
+        }
+
+        public static File export(File file, String sheet, List<?> list) {
+            getWorkbook(file, sheet, list);
             return file;
         }
 
@@ -102,15 +106,20 @@ public class ExportUtil {
         }
 
         public static File export(String path, String fileName, List<?> list) {
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".csv")), list);
+        }
+
+        public static File export(File file, List<?> list) {
             try {
-                String excelFullPath = FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".csv");
+                String path = file.getParent();
+                String filename = file.getName();
+                String excelFullPath = FilenameUtils.concat(path, FilenameUtils.removeExtension(filename) + ".csv");
                 File excelFile = new File(excelFullPath);
                 Workbook wb = getWorkbook(excelFile, "Sheet1", list);
                 if (wb == null)
                     return null;
                 DataFormatter formatter = new DataFormatter();
-                String fullPath = FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".csv");
-                File file = new File(fullPath);
+                String fullPath = FilenameUtils.concat(path, FilenameUtils.removeExtension(filename) + ".csv");
                 String dirPath = file.getParent();
                 File dirFile = new File(dirPath);
                 if (!dirFile.exists()) dirFile.mkdirs();
