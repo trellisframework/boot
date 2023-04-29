@@ -13,7 +13,7 @@ import java.util.Arrays;
 @Component
 public class LogAspect {
 
-    @Around("@annotation(Log)")
+    @Around("@within(Log) || @annotation(Log)")
     public Object executionTime(ProceedingJoinPoint point) throws Throwable {
         StopWatch stopWatch = new StopWatch();
         try {
