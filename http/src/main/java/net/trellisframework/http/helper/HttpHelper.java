@@ -35,7 +35,7 @@ public class HttpHelper {
         return call(func, new HttpErrorMessage(HttpStatus.SERVICE_UNAVAILABLE, Messages.SERVICE_UNAVAILABLE.getMessage()));
     }
 
-    public synchronized static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError) {
+    public static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError) {
         try {
             Response<T> response = func.execute();
             if (response.isSuccessful()) {
