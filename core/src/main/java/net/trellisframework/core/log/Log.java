@@ -1,9 +1,10 @@
-package net.trellisframework.util.benchmark;
+package net.trellisframework.core.log;
 
 import java.lang.annotation.*;
 
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Benchmark {
+public @interface Log {
+
 }
