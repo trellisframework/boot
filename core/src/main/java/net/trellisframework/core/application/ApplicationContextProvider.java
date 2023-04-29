@@ -8,11 +8,13 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 @Configuration
 @EntityScan(basePackages = {"net.trellisframework"})
 @ComponentScan(basePackages = "net.trellisframework")
 @EnableConfigurationProperties({ProductionPropertiesDefinition.class})
+@EnableAspectJAutoProxy
 public class ApplicationContextProvider implements ApplicationContextAware {
     public static ApplicationContext context;
 
@@ -20,6 +22,5 @@ public class ApplicationContextProvider implements ApplicationContextAware {
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         context = applicationContext;
     }
-
 
 }
