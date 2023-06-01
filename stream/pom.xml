@@ -11,13 +11,21 @@
     <artifactId>stream</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <rabbit.version>3.2.6</rabbit.version>
+        <spring.cloud.version>2021.0.5</spring.cloud.version>
     </properties>
     <dependencies>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+            <version>${spring.boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-stream</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-stream-rabbit</artifactId>
-            <version>${rabbit.version}</version>
         </dependency>
         <dependency>
             <groupId>net.trellisframework.boot</groupId>
@@ -25,6 +33,17 @@
             <version>${project.version}</version>
         </dependency>
     </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <repositories>
         <repository>
             <id>central</id>

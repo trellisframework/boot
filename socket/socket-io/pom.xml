@@ -11,7 +11,7 @@
     <artifactId>socket-io</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <netty.version>1.7.23</netty.version>
+        <netty.version>2.0.2</netty.version>
     </properties>
     <dependencies>
         <dependency>

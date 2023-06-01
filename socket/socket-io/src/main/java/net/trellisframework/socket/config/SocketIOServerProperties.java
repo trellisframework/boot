@@ -5,7 +5,7 @@ import org.springframework.util.SocketUtils;
 
 @ConfigurationProperties(prefix = "socket.socket-io")
 public class SocketIOServerProperties {
-    private String host = "*";
+    private String host = "0.0.0.0";
 
     private int port = 9092;
 
