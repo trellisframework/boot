@@ -16,4 +16,5 @@ public class ProductionPropertiesDefinition implements Payload {
     private ProductionMode mode = ProductionMode.PRODUCTION;
     private Language language = Language.EN;
     private Country country = Country.US;
+    private String baseUrl = "";
 }
