@@ -11,9 +11,9 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.http.exception.InternalServerException;
-import net.trellisframework.http.exception.NotFoundException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -24,6 +24,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class ExportUtil {
@@ -151,11 +152,119 @@ public class ExportUtil {
                 printStream.close();
                 return file;
             } catch (Exception e) {
-                Logger.error("ExportToExcel", e.getMessage(), e);
+                Logger.error("ExportToCSV", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+
+        public static File fromExcel(File file, File excel, String sheetName) {
+            try {
+                FileInputStream fileInputStream = new FileInputStream(excel);
+                Workbook workbook = WorkbookFactory.create(fileInputStream);
+
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8));
+
+                DataFormatter dataFormatter = new DataFormatter();
+                Sheet sheet = workbook.getSheet(sheetName);
+
+                for (Row row : sheet) {
+                    for (Cell cell : row) {
+                        String cellValue = dataFormatter.formatCellValue(cell);
+                        bufferedWriter.write(cellValue + ",");
+                    }
+                    bufferedWriter.newLine();
+                }
+
+                bufferedWriter.close();
+                fileOutputStream.close();
+                workbook.close();
+                return file;
+            } catch (Exception e) {
+                Logger.error("ExportToCSV", e.getMessage(), e);
                 throw new InternalServerException(e.getMessage());
             }
         }
     }
+
+
+    public static class TSV {
+        public static File export(String path, List<?> list) {
+            return export(path, list, false);
+        }
+
+        public static File export(String path, List<?> list, boolean append) {
+            return export(path, String.valueOf(System.currentTimeMillis()), list, append);
+        }
+
+        public static File export(String path, String fileName, List<?> list, boolean append) {
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".tsv")), list, append);
+        }
+
+        public static File export(File file, List<?> list) {
+            return export(file, list, false);
+        }
+
+        public static File export(File file, List<?> list, boolean append) {
+            try {
+                Workbook wb = getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Sheet1", list, append);
+                if (wb == null)
+                    return null;
+                File dir = new File(file.getParent());
+                if (!(dir.exists() || dir.mkdirs()) || !(file.exists() || file.createNewFile()))
+                    return null;
+                DataFormatter formatter = new DataFormatter();
+                PrintStream printStream = new PrintStream(file, StandardCharsets.UTF_8);
+                for (Sheet sheet : wb) {
+                    for (Row row : sheet) {
+                        boolean firstCell = true;
+                        for (Cell cell : row) {
+                            if (!firstCell) printStream.print('\t');
+                            String text = formatter.formatCellValue(cell);
+                            printStream.print(text);
+                            firstCell = false;
+                        }
+                        printStream.println();
+                    }
+                }
+                printStream.close();
+                return file;
+            } catch (Exception e) {
+                Logger.error("ExportToTSV", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+
+        public static File fromExcel(File file, File excel, String sheetName) {
+            try {
+                FileInputStream fileInputStream = new FileInputStream(excel);
+                Workbook workbook = WorkbookFactory.create(fileInputStream);
+
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8));
+
+                DataFormatter dataFormatter = new DataFormatter();
+                Sheet sheet = workbook.getSheet(sheetName);
+
+                for (Row row : sheet) {
+                    for (Cell cell : row) {
+                        String cellValue = dataFormatter.formatCellValue(cell);
+                        bufferedWriter.write(cellValue + "\t");
+                    }
+                    bufferedWriter.newLine();
+                }
+
+                bufferedWriter.close();
+                fileOutputStream.close();
+                workbook.close();
+                return file;
+            } catch (Exception e) {
+                Logger.error("ExportToTSV", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+    }
+
 
     private static Workbook getWorkbook(File file, String sheetName, List<?> list, boolean append) {
         try {
@@ -188,10 +297,19 @@ public class ExportUtil {
             int rowIndex = sheet.getPhysicalNumberOfRows();
             for (Object currentRow : list) {
                 Row dataRow = sheet.createRow(rowIndex++);
-                for (Field field : currentRow.getClass().getDeclaredFields()) {
-                    field.setAccessible(true);
-                    columnIndex = columnList.indexOf(field.getName());
-                    dataRow.createCell(columnIndex).setCellValue(String.valueOf(field.get(currentRow)));
+                if (currentRow instanceof Map<?,?>) {
+                    for (Map.Entry<String, Object> entry : ((Map<String, Object>) currentRow).entrySet()) {
+                        columnIndex = columnList.indexOf(entry.getKey());
+                        String value = Optional.ofNullable(entry.getValue()).map(Object::toString).orElse(null);
+                        dataRow.createCell(columnIndex).setCellValue(StringUtils.isBlank(value) ? "N/A" : value);
+                    }
+                } else {
+                    for (Field field : currentRow.getClass().getDeclaredFields()) {
+                        field.setAccessible(true);
+                        columnIndex = columnList.indexOf(field.getName());
+                        String value = Optional.ofNullable(field.get(currentRow)).map(Object::toString).orElse(null);
+                        dataRow.createCell(columnIndex).setCellValue(StringUtils.isBlank(value) ? "N/A" : value);
+                    }
                 }
             }
             for (int i = 0; i < columnList.size(); i++) {
@@ -213,8 +331,12 @@ public class ExportUtil {
         if (list == null || list.isEmpty())
             return result;
         Object first = list.get(0);
-        for (Field field : first.getClass().getDeclaredFields()) {
-            result.add(field.getName());
+        if (first instanceof Map<?,?>) {
+            result.addAll(((Map<String, Object>) first).keySet().stream().toList());
+        } else {
+            for (Field field : first.getClass().getDeclaredFields()) {
+                result.add(field.getName());
+            }
         }
         return result;
     }
