@@ -11,6 +11,8 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.http.exception.InternalServerException;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -21,7 +23,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -128,62 +129,11 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            try {
-                Workbook wb = getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Sheet1", list, append);
-                if (wb == null)
-                    return null;
-                File dir = new File(file.getParent());
-                if (!(dir.exists() || dir.mkdirs()) || !(file.exists() || file.createNewFile()))
-                    return null;
-                DataFormatter formatter = new DataFormatter();
-                PrintStream printStream = new PrintStream(file, StandardCharsets.UTF_8);
-                for (Sheet sheet : wb) {
-                    for (Row row : sheet) {
-                        boolean firstCell = true;
-                        for (Cell cell : row) {
-                            if (!firstCell) printStream.print(',');
-                            String text = formatter.formatCellValue(cell);
-                            printStream.print(text);
-                            firstCell = false;
-                        }
-                        printStream.println();
-                    }
-                }
-                printStream.close();
-                return file;
-            } catch (Exception e) {
-                Logger.error("ExportToCSV", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
+            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Result", list, append), "Result", CSVFormat.DEFAULT);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
-            try {
-                FileInputStream fileInputStream = new FileInputStream(excel);
-                Workbook workbook = WorkbookFactory.create(fileInputStream);
-
-                FileOutputStream fileOutputStream = new FileOutputStream(file);
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8));
-
-                DataFormatter dataFormatter = new DataFormatter();
-                Sheet sheet = workbook.getSheet(sheetName);
-
-                for (Row row : sheet) {
-                    for (Cell cell : row) {
-                        String cellValue = dataFormatter.formatCellValue(cell);
-                        bufferedWriter.write(cellValue + ",");
-                    }
-                    bufferedWriter.newLine();
-                }
-
-                bufferedWriter.close();
-                fileOutputStream.close();
-                workbook.close();
-                return file;
-            } catch (Exception e) {
-                Logger.error("ExportToCSV", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
+            return ExportUtil.fromExcel(file, excel, sheetName, CSVFormat.DEFAULT);
         }
     }
 
@@ -206,62 +156,11 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            try {
-                Workbook wb = getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Sheet1", list, append);
-                if (wb == null)
-                    return null;
-                File dir = new File(file.getParent());
-                if (!(dir.exists() || dir.mkdirs()) || !(file.exists() || file.createNewFile()))
-                    return null;
-                DataFormatter formatter = new DataFormatter();
-                PrintStream printStream = new PrintStream(file, StandardCharsets.UTF_8);
-                for (Sheet sheet : wb) {
-                    for (Row row : sheet) {
-                        boolean firstCell = true;
-                        for (Cell cell : row) {
-                            if (!firstCell) printStream.print('\t');
-                            String text = formatter.formatCellValue(cell);
-                            printStream.print(text);
-                            firstCell = false;
-                        }
-                        printStream.println();
-                    }
-                }
-                printStream.close();
-                return file;
-            } catch (Exception e) {
-                Logger.error("ExportToTSV", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
+            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Result", list, append), "Result", CSVFormat.TDF);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
-            try {
-                FileInputStream fileInputStream = new FileInputStream(excel);
-                Workbook workbook = WorkbookFactory.create(fileInputStream);
-
-                FileOutputStream fileOutputStream = new FileOutputStream(file);
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8));
-
-                DataFormatter dataFormatter = new DataFormatter();
-                Sheet sheet = workbook.getSheet(sheetName);
-
-                for (Row row : sheet) {
-                    for (Cell cell : row) {
-                        String cellValue = dataFormatter.formatCellValue(cell);
-                        bufferedWriter.write(cellValue + "\t");
-                    }
-                    bufferedWriter.newLine();
-                }
-
-                bufferedWriter.close();
-                fileOutputStream.close();
-                workbook.close();
-                return file;
-            } catch (Exception e) {
-                Logger.error("ExportToTSV", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
+            return ExportUtil.fromExcel(file, excel, sheetName, CSVFormat.TDF);
         }
     }
 
@@ -297,7 +196,7 @@ public class ExportUtil {
             int rowIndex = sheet.getPhysicalNumberOfRows();
             for (Object currentRow : list) {
                 Row dataRow = sheet.createRow(rowIndex++);
-                if (currentRow instanceof Map<?,?>) {
+                if (currentRow instanceof Map<?, ?>) {
                     for (Map.Entry<String, Object> entry : ((Map<String, Object>) currentRow).entrySet()) {
                         columnIndex = columnList.indexOf(entry.getKey());
                         String value = Optional.ofNullable(entry.getValue()).map(Object::toString).orElse(null);
@@ -326,12 +225,50 @@ public class ExportUtil {
         }
     }
 
+    private static File fromWorkbook(File file, Workbook workbook, String sheetName, CSVFormat format) {
+        try {
+
+            File dir = new File(file.getParent());
+            if ((workbook == null) || (!(dir.exists() || dir.mkdirs())))
+                return null;
+
+            Sheet sheet = workbook.getSheet(sheetName);
+            FileWriter fileWriter = new FileWriter(file);
+            CSVPrinter csvPrinter = new CSVPrinter(fileWriter, format);
+
+            for (Row row : sheet) {
+                for (Cell cell : row) {
+                    String cellValue = cell.toString();
+                    csvPrinter.print(cellValue);
+                }
+                csvPrinter.println();
+            }
+
+            csvPrinter.close();
+            fileWriter.close();
+            workbook.close();
+            return file;
+        } catch (Exception e) {
+            Logger.error("FromExcelException", e.getMessage(), e);
+            throw new InternalServerException(e.getMessage());
+        }
+    }
+
+    private static File fromExcel(File file, File excel, String sheetName, CSVFormat format) {
+        try {
+            return fromWorkbook(file, new XSSFWorkbook(new FileInputStream(excel)), sheetName, format);
+        } catch (Exception e) {
+            Logger.error("FromExcelException", e.getMessage(), e);
+            throw new InternalServerException(e.getMessage());
+        }
+    }
+
     private static List<String> getColumnName(List<?> list) {
         List<String> result = new ArrayList<>();
         if (list == null || list.isEmpty())
             return result;
         Object first = list.get(0);
-        if (first instanceof Map<?,?>) {
+        if (first instanceof Map<?, ?>) {
             result.addAll(((Map<String, Object>) first).keySet().stream().toList());
         } else {
             for (Field field : first.getClass().getDeclaredFields()) {
@@ -340,5 +277,6 @@ public class ExportUtil {
         }
         return result;
     }
+
 
 }
