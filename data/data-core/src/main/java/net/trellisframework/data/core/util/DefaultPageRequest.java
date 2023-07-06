@@ -14,13 +14,13 @@ public class DefaultPageRequest extends PageRequest  {
     }
 
     public static PageRequest of(int page, int size) {
-        return of(page, size, Sort.by(Sort.Direction.DESC, "created"));
+        return of(page, size, Sort.unsorted());
     }
 
     public static PageRequest of(int page, int size, List<String> sort) {
         if (ObjectUtils.isEmpty(sort))
             return of(page, size);
-        return PageRequest.of(page, size, Sort.by(sort.stream().map(x -> {
+        return PageRequest.of(page, size, ObjectUtils.isEmpty(sort) ? Sort.unsorted() : Sort.by(sort.stream().map(x -> {
             String[] data = x.split(":");
             return new Sort.Order(Sort.Direction.fromOptionalString(data.length > 1 ? data[1] : "DESC").orElse(Sort.Direction.DESC), Optional.ofNullable(data[0]).orElse("created"));
         }).toList()));
