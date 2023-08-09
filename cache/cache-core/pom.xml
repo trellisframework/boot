@@ -5,29 +5,21 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>net.trellisframework.boot</groupId>
-        <artifactId>data</artifactId>
+        <artifactId>cache</artifactId>
         <version>1.0</version>
     </parent>
-    <artifactId>data-redis</artifactId>
+    <artifactId>cache-core</artifactId>
     <packaging>jar</packaging>
-    <properties>
-        <jedis.version>4.1.1</jedis.version>
-    </properties>
     <dependencies>
+        <dependency>
+            <groupId>net.trellisframework.boot</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
             <version>${spring.boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-            <version>${spring.boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>redis.clients</groupId>
-            <artifactId>jedis</artifactId>
-            <version>${jedis.version}</version>
         </dependency>
     </dependencies>
 </project>

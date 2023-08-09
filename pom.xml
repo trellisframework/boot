@@ -33,6 +33,7 @@
         <module>oauth</module>
         <module>ui</module>
         <module>socket</module>
+        <module>cache</module>
     </modules>
     <dependencies>
         <dependency>
