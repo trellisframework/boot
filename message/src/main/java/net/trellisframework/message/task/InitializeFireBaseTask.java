@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 
 @Service
-public class InitializeFireBaseTask extends Task1<FirebaseApp, FireBaseConfiguration> {
+public class InitializeFireBaseTask implements Task1<FirebaseApp, FireBaseConfiguration> {
 
     @Override
     public FirebaseApp execute(FireBaseConfiguration configuration) {

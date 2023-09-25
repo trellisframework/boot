@@ -1,7 +1,7 @@
 package net.trellisframework.context.process;
 
-public interface Process4<TOutput, TInput1, TInput2, TInput3, TInput4> extends BaseProcess {
+public interface Process4<O, I1, I2, I3, I4> extends BaseProcess {
 
-    TOutput execute(TInput1 t1, TInput2 t2, TInput3 t3, TInput4 t4);
+    O execute(I1 i1, I2 i2, I3 i3, I4 i4);
 
 }

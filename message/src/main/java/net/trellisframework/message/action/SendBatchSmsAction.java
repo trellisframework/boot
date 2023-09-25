@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class SendBatchSmsAction extends Action3<List<SendMessageResponse>, String , List<String>, String> {
+public class SendBatchSmsAction implements Action3<List<SendMessageResponse>, String , List<String>, String> {
 
     @Override
     public List<SendMessageResponse> execute(String config, List<String> recipients, String message) {

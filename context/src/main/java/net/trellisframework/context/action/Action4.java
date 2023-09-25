@@ -2,7 +2,7 @@ package net.trellisframework.context.action;
 
 import net.trellisframework.context.process.Process4;
 
-public abstract class Action4<TOutput, TInput1, TInput2, TInput3, TInput4> extends BaseAction implements Process4<TOutput, TInput1, TInput2, TInput3, TInput4> {
+public interface Action4<O, I1, I2, I3, I4> extends BaseAction , Process4<O, I1, I2, I3, I4> {
 
-    public abstract TOutput execute(TInput1 t1, TInput2 t2, TInput3 t3, TInput4 t4);
+    O execute(I1 i1, I2 i2, I3 i3, I4 i4);
 }

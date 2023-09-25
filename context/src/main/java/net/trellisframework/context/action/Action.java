@@ -2,8 +2,8 @@ package net.trellisframework.context.action;
 
 import net.trellisframework.context.process.Process;
 
-public abstract class Action<TOutput> extends BaseAction implements Process<TOutput> {
+public interface Action<O> extends BaseAction, Process<O> {
 
-    public abstract TOutput execute();
+    O execute();
 
 }

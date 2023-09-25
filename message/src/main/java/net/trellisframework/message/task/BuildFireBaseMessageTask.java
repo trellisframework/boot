@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 
 @Service
-public class BuildFireBaseMessageTask extends Task1<Message, SendFireBaseNotificationRequest> {
+public class BuildFireBaseMessageTask implements Task1<Message, SendFireBaseNotificationRequest> {
 
     @Override
     public Message execute(SendFireBaseNotificationRequest request) {

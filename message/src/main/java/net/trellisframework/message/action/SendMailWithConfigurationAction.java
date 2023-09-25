@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.Properties;
 
 @Service
-public class SendMailWithConfigurationAction extends Action2<SendMessageResponse, MailPropertiesDefinition, SendMailRequest> {
+public class SendMailWithConfigurationAction implements Action2<SendMessageResponse, MailPropertiesDefinition, SendMailRequest> {
 
     @Override
     public SendMessageResponse execute(MailPropertiesDefinition config, SendMailRequest request) {

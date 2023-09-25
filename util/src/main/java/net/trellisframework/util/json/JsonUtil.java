@@ -7,6 +7,7 @@ import net.trellisframework.core.message.Messages;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import net.trellisframework.http.exception.NotAcceptableException;
 import net.trellisframework.http.exception.NotFoundException;
+import net.trellisframework.util.mapper.ModelMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,8 +21,7 @@ public class JsonUtil {
 
     public static String toString(Object value) {
         try {
-            ObjectMapper Obj = new ObjectMapper();
-            return Obj.writeValueAsString(value);
+            return getMapper().writeValueAsString(value);
         } catch (JsonProcessingException e) {
             Logger.error("JsonProcessingException", e.getMessage());
             return "";

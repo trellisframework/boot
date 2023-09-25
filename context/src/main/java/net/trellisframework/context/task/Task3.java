@@ -2,8 +2,8 @@ package net.trellisframework.context.task;
 
 import net.trellisframework.context.process.Process3;
 
-public abstract class Task3<TOutput, TInput1, TInput2, TInput3> extends BaseTask implements Process3<TOutput, TInput1, TInput2, TInput3> {
+public interface Task3<O, I1, I2, I3> extends BaseTask, Process3<O, I1, I2, I3> {
 
-    public abstract TOutput execute(TInput1 t1, TInput2 t2, TInput3 t3);
+    O execute(I1 i1, I2 i2, I3 i3);
 
 }

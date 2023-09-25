@@ -1,7 +1,7 @@
 package net.trellisframework.context.process;
 
-public interface Process1<TOutput, TInput> extends BaseProcess {
+public interface Process1<O, I1> extends BaseProcess {
 
-    TOutput execute(TInput param);
+    O execute(I1 i1);
 
 }

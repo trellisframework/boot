@@ -3,8 +3,8 @@ package net.trellisframework.data.core.task;
 import net.trellisframework.context.process.Process1;
 import net.trellisframework.data.core.data.repository.GenericRepository;
 
-public abstract class RepositoryTask1<TRepository extends GenericRepository<?, ?>, TOutput, TInput> extends BaseRepositoryTask<TRepository> implements Process1<TOutput, TInput> {
+public interface RepositoryTask1<R extends GenericRepository<?, ?>, O, I1> extends BaseRepositoryTask<R> , Process1<O, I1> {
 
-    public abstract TOutput execute(TInput t1);
+    O execute(I1 i1);
 
 }

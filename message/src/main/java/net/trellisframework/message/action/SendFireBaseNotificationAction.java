@@ -8,7 +8,7 @@ import net.trellisframework.message.payload.SendMessageResponse;
 import org.springframework.stereotype.Service;
 
 @Service
-public class SendFireBaseNotificationAction extends Action1<SendMessageResponse, SendFireBaseNotificationRequest> {
+public class SendFireBaseNotificationAction implements Action1<SendMessageResponse, SendFireBaseNotificationRequest> {
 
     @Override
     public SendMessageResponse execute(SendFireBaseNotificationRequest request) {

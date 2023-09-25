@@ -15,6 +15,7 @@
         <reflection.version>0.10.2</reflection.version>
         <beanutils.version>1.9.4</beanutils.version>
         <dozer.version>5.5.1</dozer.version>
+        <jackson.version>2.15.2</jackson.version>
         <commons.codec.version>1.15</commons.codec.version>
         <common.io.version>2.11.0</common.io.version>
         <sshj.version>0.32.0</sshj.version>
@@ -24,6 +25,7 @@
         <poi-ooxml.version>5.2.0</poi-ooxml.version>
         <bcprov-jdk15on.version>1.67</bcprov-jdk15on.version>
         <commons-text.version>1.10.0</commons-text.version>
+        <aws.version>1.12.555</aws.version>
     </properties>
     <dependencies>
         <dependency>
@@ -62,9 +64,9 @@
             <version>${commons.codec.version}</version>
         </dependency>
         <dependency>
-            <groupId>net.sf.dozer</groupId>
-            <artifactId>dozer</artifactId>
-            <version>${dozer.version}</version>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.hierynomus</groupId>
@@ -104,7 +106,18 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
-            <version>1.10.0</version>
+            <version>${commons-text.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>${aws.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <version>${spring.boot.version}</version>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>

@@ -8,7 +8,7 @@ import net.trellisframework.context.task.Task2;
 import org.springframework.stereotype.Service;
 
 @Service
-public class GoogleCaptchaValidatorTask extends Task2<GoogleCaptchaVerifyResponse, String, String> implements WebHelper {
+public class GoogleCaptchaValidatorTask implements Task2<GoogleCaptchaVerifyResponse, String, String>, WebHelper {
 
     @Override
     public GoogleCaptchaVerifyResponse execute(String secret, String token) {

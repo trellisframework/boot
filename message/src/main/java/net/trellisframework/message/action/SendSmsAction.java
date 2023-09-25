@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-public class SendSmsAction extends Action3<SendMessageResponse, String , String, String> {
+public class SendSmsAction implements Action3<SendMessageResponse, String , String, String> {
 
     @Override
     public SendMessageResponse execute(String config, String recipient, String message) {

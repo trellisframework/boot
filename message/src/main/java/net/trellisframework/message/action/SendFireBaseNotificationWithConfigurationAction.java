@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 
 @Service
-public class SendFireBaseNotificationWithConfigurationAction extends Action2<SendMessageResponse, FireBaseConfiguration, SendFireBaseNotificationRequest> {
+public class SendFireBaseNotificationWithConfigurationAction implements Action2<SendMessageResponse, FireBaseConfiguration, SendFireBaseNotificationRequest> {
 
     @Override
     public SendMessageResponse execute(FireBaseConfiguration configuration, SendFireBaseNotificationRequest request) {

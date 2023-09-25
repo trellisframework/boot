@@ -6,6 +6,6 @@ import net.trellisframework.context.task.Task3;
 
 import java.util.List;
 
-public abstract class AbstractSendBatchSmsTask extends Task3<List<SendMessageResponse>, SmsPropertiesDefinition, List<String>, String> {
+public abstract class AbstractSendBatchSmsTask implements Task3<List<SendMessageResponse>, SmsPropertiesDefinition, List<String>, String> {
 
 }

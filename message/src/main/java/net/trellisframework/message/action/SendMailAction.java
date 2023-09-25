@@ -7,7 +7,7 @@ import net.trellisframework.message.payload.SendMessageResponse;
 import org.springframework.stereotype.Service;
 
 @Service
-public class SendMailAction extends Action1<SendMessageResponse, SendMailRequest> {
+public class SendMailAction implements Action1<SendMessageResponse, SendMailRequest> {
 
     @Override
     public SendMessageResponse execute(SendMailRequest request) {
