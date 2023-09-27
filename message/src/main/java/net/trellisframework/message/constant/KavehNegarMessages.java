@@ -1,7 +1,11 @@
 package net.trellisframework.message.constant;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import net.trellisframework.core.message.MessageHandler;
 
+@Getter
+@AllArgsConstructor
 public enum KavehNegarMessages implements MessageHandler {
     BAD_REQUEST(400),
     FAILED(402),
@@ -9,11 +13,7 @@ public enum KavehNegarMessages implements MessageHandler {
     METHOD_NOT_ALLOWED(405),
     CONFLICT(409);
 
-    private int value;
-
-    public int getValue() {
-        return value;
-    }
+    private final int value;
 
     public static KavehNegarMessages of(int v) {
         for (KavehNegarMessages value : values())
@@ -21,7 +21,4 @@ public enum KavehNegarMessages implements MessageHandler {
         return FAILED;
     }
 
-    KavehNegarMessages(Integer value) {
-        this.value = value;
-    }
 }

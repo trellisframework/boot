@@ -1,35 +1,36 @@
 package net.trellisframework.message.action;
 
+import jakarta.mail.*;
+import jakarta.mail.internet.MimeMessage;
 import net.trellisframework.context.action.Action2;
 import net.trellisframework.core.log.Logger;
-import net.trellisframework.message.config.MailPropertiesDefinition;
 import net.trellisframework.message.payload.EmbeddedData;
 import net.trellisframework.message.payload.SendMailRequest;
 import net.trellisframework.message.payload.SendMessageResponse;
-import jakarta.mail.*;
-import jakarta.mail.internet.MimeMessage;
+import org.apache.commons.lang3.StringUtils;
 import org.simplejavamail.api.email.Email;
 import org.simplejavamail.api.email.EmailPopulatingBuilder;
 import org.simplejavamail.converter.EmailConverter;
 import org.simplejavamail.email.EmailBuilder;
+import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import java.util.Properties;
 
 @Service
-public class SendMailWithConfigurationAction implements Action2<SendMessageResponse, MailPropertiesDefinition, SendMailRequest> {
+public class SendMailWithConfigurationAction implements Action2<SendMessageResponse, MailProperties, SendMailRequest> {
 
     @Override
-    public SendMessageResponse execute(MailPropertiesDefinition config, SendMailRequest request) {
+    public SendMessageResponse execute(MailProperties config, SendMailRequest request) {
         try {
-            EmailPopulatingBuilder builder = EmailBuilder.startingBlank().from(config.getFrom()).withRecipient(request.getEmail(), request.getEmail(), Message.RecipientType.TO).withSubject(request.getSubject()).withPlainText("").withHTMLText(request.getBody());
+            EmailPopulatingBuilder builder = EmailBuilder.startingBlank().from(config.getProperties().getOrDefault("from", StringUtils.EMPTY)).withRecipient(request.getEmail(), request.getEmail(), Message.RecipientType.TO).withSubject(request.getSubject()).withPlainText("").withHTMLText(request.getBody());
             Properties props = new Properties();
             props.put("mail.smtp.host", config.getHost());
             props.put("mail.smtp.port", config.getPort());
-            props.put("mail.smtp.auth", config.getEnableAuthentication());
-            props.put("mail.smtp.starttls.enable", config.getEnableStartTLS());
-            props.put("mail.smtp.ssl.enable", config.getEnableSSL());
+            props.put("mail.smtp.auth", config.getProperties().getOrDefault("enable-authentication", "false"));
+            props.put("mail.smtp.starttls.enable", config.getProperties().getOrDefault("enable-start-tls", "false"));
+            props.put("mail.smtp.ssl.enable", config.getProperties().getOrDefault("enable-ssl", "false"));
             if (request.getPdf() != null) {
                 builder.withAttachment(request.getPdfName(), request.getPdf(), MediaType.APPLICATION_PDF_VALUE);
             }

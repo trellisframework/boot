@@ -18,6 +18,7 @@
         <jaxb-api.version>2.3.1</jaxb-api.version>
         <grpc.version>1.42.2</grpc.version>
         <javax.xml.version>1.1.2</javax.xml.version>
+        <mailgun.version>1.0.8</mailgun.version>
     </properties>
     <dependencies>
         <dependency>
@@ -35,6 +36,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web-services</artifactId>
             <version>${spring.boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mailgun</groupId>
+            <artifactId>mailgun-java</artifactId>
+            <version>${mailgun.version}</version>
         </dependency>
         <dependency>
             <groupId>org.simplejavamail</groupId>

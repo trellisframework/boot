@@ -1,9 +1,9 @@
 package net.trellisframework.message.task;
 
-import net.trellisframework.message.config.SmsPropertiesDefinition;
-import net.trellisframework.message.payload.SendMessageResponse;
 import com.kavenegar.sdk.KavenegarApi;
 import com.kavenegar.sdk.models.SendResult;
+import net.trellisframework.message.config.MessageProperties;
+import net.trellisframework.message.payload.SendMessageResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public class SendBatchSmsWithKavehNegarTask extends AbstractSendBatchSmsTask {
 
     @Override
-    public List<SendMessageResponse> execute(SmsPropertiesDefinition configuration, List<String> recipients, String message) {
+    public List<SendMessageResponse> execute(MessageProperties.SmsPropertiesDefinition configuration, List<String> recipients, String message) {
         try {
             KavenegarApi api = new KavenegarApi(configuration.getPassword());
             List<SendResult> result = api.send(configuration.getFrom(), recipients, message);
