@@ -1,7 +1,11 @@
 package net.trellisframework.message.constant;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import net.trellisframework.core.message.MessageHandler;
 
+@Getter
+@AllArgsConstructor
 public enum MagfaMessages implements MessageHandler {
     SMS_SERVICE_PROVIDER_IS_UNAVAILABLE(-1),
     RECEIVER_NUMBER_IS_INVALID(1),
@@ -36,11 +40,7 @@ public enum MagfaMessages implements MessageHandler {
     ENCODING_ARRAY_NOT_MATCH_WITH_RECEIVER_ARRAY(109),
     CHECKING_MESSAGE_IDS_ARRAY_NOT_MATCH_WITH_RECEIVER_ARRAY(110);
 
-    private long value;
-
-    public long getValue() {
-        return value;
-    }
+    private final long value;
 
     public static long getMaxValue() {
         return CHECKING_MESSAGE_IDS_ARRAY_NOT_MATCH_WITH_RECEIVER_ARRAY.getValue();
@@ -54,9 +54,5 @@ public enum MagfaMessages implements MessageHandler {
         for (MagfaMessages value : values())
             if (v == value.getValue()) return value;
         return SMS_SERVICE_PROVIDER_IS_UNAVAILABLE;
-    }
-
-    MagfaMessages(Integer value) {
-        this.value = value;
     }
 }

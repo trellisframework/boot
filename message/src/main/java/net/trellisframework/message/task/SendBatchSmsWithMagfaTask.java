@@ -1,6 +1,6 @@
 package net.trellisframework.message.task;
 
-import net.trellisframework.message.config.SmsPropertiesDefinition;
+import net.trellisframework.message.config.MessageProperties;
 import net.trellisframework.message.constant.MagfaMessages;
 import net.trellisframework.message.payload.SendMessageResponse;
 import org.apache.axis.client.Call;
@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 public class SendBatchSmsWithMagfaTask extends AbstractSendBatchSmsTask {
 
     @Override
-    public List<SendMessageResponse> execute(SmsPropertiesDefinition configuration, List<String> recipients, String message) {
+    public List<SendMessageResponse> execute(MessageProperties.SmsPropertiesDefinition configuration, List<String> recipients, String message) {
         try {
             final String END_POINT_URL = "https://sms.magfa.com/services/urn:SOAPSmsQueue";
             final String URN = "urn:SOAPSmsQueue";
