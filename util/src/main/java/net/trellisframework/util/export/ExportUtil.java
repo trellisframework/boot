@@ -12,7 +12,9 @@ import com.itextpdf.text.pdf.PdfWriter;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.http.exception.InternalServerException;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -23,12 +25,14 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class ExportUtil {
+    private static final String EXCEL_EXTENSION = ".xlsx";
+    private static final String CSV_EXTENSION = ".csv";
+    private static final String PDF_EXTENSION = ".pdf";
+    private static final String TSV_EXTENSION = ".tsv";
+    private static final String RESULT_SHEET_NAME = "Result";
 
     public static class PDF {
 
@@ -45,7 +49,7 @@ public class ExportUtil {
         }
 
         public static File export(String path, List<?> list, String fileName, String font, boolean append) {
-            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".pdf")), list, font, append);
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + PDF_EXTENSION)), list, font, append);
         }
 
         public static File export(File file, List<?> list, String font) {
@@ -58,8 +62,7 @@ public class ExportUtil {
                 Font normal = FontFactory.getFont(font, BaseFont.IDENTITY_H, 8);
                 File excel = Excel.export(file.getParent(), file.getName(), sheet_name, list, append);
                 FileInputStream input_document = new FileInputStream(excel);
-                XSSFWorkbook workbook = new XSSFWorkbook(input_document);
-                XSSFSheet sheet = workbook.getSheet(sheet_name);
+                XSSFSheet sheet = getSheet(sheet_name, input_document);
                 Document document = new Document();
                 PdfWriter.getInstance(document, new FileOutputStream(file));
                 document.open();
@@ -81,6 +84,15 @@ public class ExportUtil {
             }
         }
 
+        private static XSSFSheet getSheet(String sheet_name, FileInputStream input_document) {
+            try (XSSFWorkbook workbook = new XSSFWorkbook(input_document)) {
+                return workbook.getSheet(sheet_name);
+            } catch (Exception e) {
+                Logger.error("getSheet", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+
     }
 
     public static class Excel {
@@ -97,7 +109,7 @@ public class ExportUtil {
         }
 
         public static File export(String path, String fileName, String sheetName, List<?> list, boolean append) {
-            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".xlsx")), sheetName, list, append);
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + EXCEL_EXTENSION)), sheetName, list, append);
         }
 
         public static File export(File file, String sheet, List<?> list) {
@@ -107,6 +119,66 @@ public class ExportUtil {
         public static File export(File file, String sheet, List<?> list, boolean append) {
             getWorkbook(file, sheet, list, append);
             return file;
+        }
+
+        public static File fromCSV(File csvFile, File excelFile, String sheetName) {
+            try (FileReader reader = new FileReader(csvFile);
+                 CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withHeader())) {
+                return fromCSVParser(csvParser, excelFile, sheetName);
+            } catch (IOException e) {
+                Logger.error("fromCSV", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+
+        public static File fromCSV(String csvString, File excelFile, String sheetName) {
+            try (StringReader reader = new StringReader(csvString);
+                 CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withHeader())) {
+                return fromCSVParser(csvParser, excelFile, sheetName);
+            } catch (IOException e) {
+                Logger.error("fromCSV", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
+        }
+
+        private static File fromCSVParser(CSVParser csvParser, File excelFile, String sheetName) {
+
+            try (Workbook workbook = new XSSFWorkbook()) {
+                Sheet sheet = workbook.createSheet(sheetName);
+
+                // Write headers
+                Row headerRow = sheet.createRow(0);
+                int columnIndex = 0;
+                for (String header : csvParser.getHeaderNames()) {
+                    headerRow.createCell(columnIndex++).setCellValue(header);
+                }
+
+                // Write CSV data
+                int rowIndex = 1;
+                for (CSVRecord record : csvParser) {
+                    Row row = sheet.createRow(rowIndex++);
+                    columnIndex = 0;
+                    for (String header : csvParser.getHeaderNames()) {
+                        String value = record.get(header);
+                        row.createCell(columnIndex++).setCellValue(value != null ? value : "N/A");
+                    }
+                }
+
+                // Auto-size columns
+                for (int i = 0; i < csvParser.getHeaderNames().size(); i++) {
+                    sheet.autoSizeColumn(i);
+                }
+
+                // Write the workbook to the file
+                try (FileOutputStream fileOut = new FileOutputStream(excelFile)) {
+                    workbook.write(fileOut);
+                }
+
+                return excelFile;
+            } catch (IOException e) {
+                Logger.error("fromCSVParser", e.getMessage(), e);
+                throw new InternalServerException(e.getMessage());
+            }
         }
 
     }
@@ -121,7 +193,7 @@ public class ExportUtil {
         }
 
         public static File export(String path, String fileName, List<?> list, boolean append) {
-            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".csv")), list, append);
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + CSV_EXTENSION)), list, append);
         }
 
         public static File export(File file, List<?> list) {
@@ -129,11 +201,58 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Result", list, append), "Result", CSVFormat.DEFAULT);
+            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + EXCEL_EXTENSION)), RESULT_SHEET_NAME, list, append), RESULT_SHEET_NAME, CSVFormat.DEFAULT);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
             return ExportUtil.fromExcel(file, excel, sheetName, CSVFormat.DEFAULT);
+        }
+
+        public static List<Map<String, Object>> extractData(File csvFile) {
+            try {
+                FileReader fileReader = new FileReader(csvFile);
+
+                CSVParser csvParser = new CSVParser(fileReader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
+                List var3 = extractData(csvParser);
+                csvParser.close();
+                fileReader.close();
+                return var3;
+            } catch (IOException var9) {
+                var9.printStackTrace();
+                throw new InternalServerException("Failed to export records from file: " + var9.getMessage());
+            }
+        }
+
+        private static List<Map<String, Object>> extractData(CSVParser csvParser) {
+            List<Map<String, Object>> records = new ArrayList<>();
+            Map<String, String> modifiedHeaders = new HashMap<>();
+            Iterator var3 = csvParser.getHeaderNames().iterator();
+
+            while(var3.hasNext()) {
+                String header = (String)var3.next();
+                modifiedHeaders.put(header, convertToNativeHeader(header));
+            }
+
+            var3 = csvParser.iterator();
+
+            while(var3.hasNext()) {
+                CSVRecord csvRecord = (CSVRecord)var3.next();
+                Map<String, Object> item = new HashMap();
+                Iterator var6 = csvParser.getHeaderNames().iterator();
+
+                while(var6.hasNext()) {
+                    String header = (String)var6.next();
+                    String value = csvRecord.get(header);
+                    item.put((String)modifiedHeaders.get(header), value);
+                }
+
+                records.add(item);
+            }
+
+            return records;
+        }
+        private static String convertToNativeHeader(String header) {
+            return header.replace(" ", "_").toLowerCase().replace("\"", "");
         }
     }
 
@@ -148,7 +267,7 @@ public class ExportUtil {
         }
 
         public static File export(String path, String fileName, List<?> list, boolean append) {
-            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + ".tsv")), list, append);
+            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + TSV_EXTENSION)), list, append);
         }
 
         public static File export(File file, List<?> list) {
@@ -156,7 +275,7 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + ".xlsx")), "Result", list, append), "Result", CSVFormat.TDF);
+            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + EXCEL_EXTENSION)), RESULT_SHEET_NAME, list, append), RESULT_SHEET_NAME, CSVFormat.TDF);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
@@ -277,6 +396,5 @@ public class ExportUtil {
         }
         return result;
     }
-
 
 }
