@@ -5,12 +5,14 @@ import net.trellisframework.core.constant.Country;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.TimeZone.getAvailableIDs;
@@ -153,5 +155,12 @@ public class Validator {
 
     public static boolean isValidTimeZone(String value) {
         return StringUtils.isNotBlank(value) && Set.of(getAvailableIDs()).contains(value);
+    }
+
+    public static boolean isURL(String url) {
+        String urlPattern = "^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
+        Pattern pattern = Pattern.compile(urlPattern);
+        Matcher matcher = pattern.matcher(url);
+        return matcher.matches();
     }
 }

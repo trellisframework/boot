@@ -11,21 +11,21 @@
     <artifactId>util</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <reflection.util.version>2.13.2</reflection.util.version>
+        <reflection.util.version>2.14.0</reflection.util.version>
         <reflection.version>0.10.2</reflection.version>
         <beanutils.version>1.9.4</beanutils.version>
         <dozer.version>5.5.1</dozer.version>
-        <jackson.version>2.15.2</jackson.version>
-        <commons.codec.version>1.15</commons.codec.version>
-        <common.io.version>2.11.0</common.io.version>
-        <sshj.version>0.32.0</sshj.version>
-        <commons-net.version>3.9.0</commons-net.version>
-        <gson.version>2.9.0</gson.version>
+        <jackson.version>2.15.3</jackson.version>
+        <commons.codec.version>1.16.0</commons.codec.version>
+        <common.io.version>2.14.0</common.io.version>
+        <sshj.version>0.37.0</sshj.version>
+        <commons-net.version>3.10.0</commons-net.version>
+        <gson.version>2.10.1</gson.version>
         <itextpdf.version>5.5.13.3</itextpdf.version>
-        <poi-ooxml.version>5.2.0</poi-ooxml.version>
-        <bcprov-jdk15on.version>1.67</bcprov-jdk15on.version>
+        <poi-ooxml.version>5.2.4</poi-ooxml.version>
+        <bouncycastle.version>1.76</bouncycastle.version>
         <commons-text.version>1.10.0</commons-text.version>
-        <aws.version>1.12.555</aws.version>
+        <aws.version>1.12.570</aws.version>
     </properties>
     <dependencies>
         <dependency>
@@ -85,8 +85,8 @@
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk15on</artifactId>
-            <version>${bcprov-jdk15on.version}</version>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -117,7 +117,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <version>${spring.boot.version}</version>
-            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>

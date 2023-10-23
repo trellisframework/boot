@@ -32,7 +32,7 @@ public class BasicPredicateBuilder<T> {
           }
           this.criteria.add(c);
         }
-        if (this.criteria.size() == 0) {
+        if (this.criteria.isEmpty()) {
           throw new IllegalArgumentException("Invalid query: " + search);
         }
       }
@@ -43,7 +43,7 @@ public class BasicPredicateBuilder<T> {
     }
 
     public BooleanExpression build() {
-      if (this.criteria.size() == 0) {
+      if (this.criteria.isEmpty()) {
         return null;
       }
       List<BooleanExpression> predicates = criteria.stream().map(param -> {

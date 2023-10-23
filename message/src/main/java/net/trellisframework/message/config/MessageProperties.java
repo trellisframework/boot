@@ -2,11 +2,11 @@ package net.trellisframework.message.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
+import net.trellisframework.core.payload.Payload;
 import net.trellisframework.message.constant.SmsProvider;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.Payload;
 import java.util.HashMap;
 import java.util.Map;
 

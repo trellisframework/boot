@@ -1,6 +1,10 @@
 package net.trellisframework.http.exception;
 
 import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 import net.trellisframework.core.message.MessageHelper;
 import net.trellisframework.core.payload.Payload;
 import org.apache.commons.lang3.StringUtils;
@@ -12,6 +16,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor(staticName = "of")
+@ToString
 public class HttpErrorMessage implements Payload {
     private Date timestamp;
 
@@ -22,49 +30,6 @@ public class HttpErrorMessage implements Payload {
     private String error;
 
     private String path;
-
-    public Date getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Date timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public HttpStatus getHttpStatus() {
-        return httpStatus;
-    }
-
-    public void setHttpStatus(HttpStatus httpStatus) {
-        this.httpStatus = httpStatus;
-    }
-
-    public Integer getStatus() {
-        return status;
-    }
-
-    public void setStatus(Integer status) {
-        this.status = status;
-    }
-
-    public String getError() {
-        return error;
-    }
-
-    public void setError(String error) {
-        this.error = error;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public void setPath(String path) {
-        this.path = path;
-    }
-
-    public HttpErrorMessage() {
-    }
 
     public HttpErrorMessage(HttpStatus httpStatus, String message) {
         this(httpStatus, message, null, StringUtils.EMPTY);
@@ -82,7 +47,7 @@ public class HttpErrorMessage implements Payload {
         List<String> messages = Arrays.asList(message.split(" "));
         String originalMessage = messages.stream().findFirst().orElse(StringUtils.EMPTY);
         String[] parameters = messages.size() < 2 ? new String[0] : messages.subList(1, messages.size()).toArray(new String[messages.size() - 1]);
-        String translatedMessage = MessageHelper.getMessage(originalMessage, parameters);
+        String translatedMessage = MessageHelper.getMessage(originalMessage, (Object[]) parameters);
         status = status == null ? MessageHelper.getCode(message) : status;
         this.httpStatus = httpStatus;
         this.timestamp = timestamp;
@@ -98,16 +63,5 @@ public class HttpErrorMessage implements Payload {
                 "error", error,
                 "path", path
         );
-    }
-
-    @Override
-    public String toString() {
-        return "ErrorMessage{" +
-                "timestamp=" + timestamp +
-                ", httpStatus=" + httpStatus +
-                ", status=" + status +
-                ", error='" + error + '\'' +
-                ", path='" + path + '\'' +
-                '}';
     }
 }

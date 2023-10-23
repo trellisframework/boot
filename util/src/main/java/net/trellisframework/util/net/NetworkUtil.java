@@ -70,8 +70,7 @@ public class NetworkUtil {
     }
 
     public static void ssh(String host, String username, String password) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try (SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
@@ -81,18 +80,11 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 
     public static void ssh(String host, String username, File privateKey) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try (SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
@@ -102,29 +94,22 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 
     public static void scp(String host, String username, String password, String localPath, String remotePath) throws ForbiddenException, GatewayTimeoutException {
-        scp(host, username, password, localPath, remotePath, null);
+        scp(host, username, password, localPath, remotePath, (String[]) null);
     }
 
     public static void scp(String host, String username, String password, String localPath, String remotePath, String... commands) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try(SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
             ssh.authPassword(username, password);
             ssh.useCompression();
             ssh.newSCPFileTransfer().upload(localPath, remotePath);
-            if (commands != null && commands.length > 0) {
+            if (commands != null) {
                 for (String command : commands) {
                     Session session = ssh.startSession();
                     Session.Command cmd = session.exec(command);
@@ -137,12 +122,6 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 
@@ -151,15 +130,14 @@ public class NetworkUtil {
     }
 
     public static void scp(String host, String username, File privateKey, String localPath, String remotePath, String... commands) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try(SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
             ssh.authPublickey(username, privateKey.getAbsolutePath());
             ssh.useCompression();
             ssh.newSCPFileTransfer().upload(localPath, remotePath);
-            if (commands != null && commands.length > 0) {
+            if (commands != null) {
                 for (String command : commands) {
                     Session session = ssh.startSession();
                     Session.Command cmd = session.exec(command);
@@ -172,18 +150,11 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 
     public static void command(String host, String username, String password, String... commands) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try(SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
@@ -199,18 +170,11 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 
     public static void command(String host, String username, File privateKey, String... commands) throws ForbiddenException, GatewayTimeoutException {
-        final SSHClient ssh = new SSHClient();
-        try {
+        try(SSHClient ssh = new SSHClient()) {
             ssh.addHostKeyVerifier(new PromiscuousVerifier());
             ssh.loadKnownHosts();
             ssh.connect(host);
@@ -226,12 +190,6 @@ public class NetworkUtil {
             if (e instanceof ConnectException)
                 throw new GatewayTimeoutException(Messages.SSH_TIMEOUT);
             throw new ForbiddenException(Messages.SSH_AUTHENTICATION_FAILED);
-        } finally {
-            try {
-                ssh.disconnect();
-            } catch (IOException ignored) {
-
-            }
         }
     }
 }

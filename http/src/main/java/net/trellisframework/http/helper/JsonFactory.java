@@ -2,6 +2,7 @@ package net.trellisframework.http.helper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
+import jakarta.annotation.Nullable;
 import net.trellisframework.core.log.Logger;
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
@@ -9,7 +10,6 @@ import okhttp3.ResponseBody;
 import retrofit2.Converter;
 import retrofit2.Retrofit;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;

@@ -4,10 +4,10 @@ import net.trellisframework.core.constant.Country;
 import net.trellisframework.core.constant.Language;
 import net.trellisframework.core.constant.ProductionMode;
 import lombok.Data;
+import net.trellisframework.core.payload.Payload;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.Payload;
 
 @ConfigurationProperties("spring.application")
 @Validated

@@ -6,28 +6,19 @@ import com.querydsl.core.dml.InsertClause;
 import com.querydsl.core.dml.UpdateClause;
 import com.querydsl.core.types.EntityPath;
 import com.querydsl.core.types.Expression;
-import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.PathBuilderFactory;
 import com.querydsl.jpa.JPQLQuery;
-import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.EntityManager;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.core.data.repository.GenericRepository;
-import org.apache.poi.ss.formula.functions.T;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.support.Querydsl;
-import org.springframework.data.querydsl.QSort;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
-import org.springframework.data.support.PageableExecutionUtils;
-
-import javax.persistence.EntityManager;
-import java.lang.reflect.ParameterizedType;
-import java.util.List;
 
 @NoRepositoryBean
 public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEntity, ID>, JpaRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {

@@ -67,6 +67,6 @@ public class PhoneUtil {
 
     static boolean isValidLocalNumber(String phone, String countryCode) {
         String plain = toLocalNumber(phone, countryCode);
-        return !plain.isEmpty() && plain.startsWith("0") && plain.length() == 11;
+        return plain.startsWith("0") && plain.length() == 11;
     }
 }

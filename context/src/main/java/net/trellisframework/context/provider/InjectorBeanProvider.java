@@ -11,7 +11,7 @@ public interface InjectorBeanProvider {
 
     LRUMap<Class<?>, Object> DI = new LRUMap<>(10000);
 
-    default <T extends BaseProcess> void inject(T... values) {
+    default <T extends BaseProcess> void inject(T[] values) {
         for (T value : values) {
             DI.put(Mockito.mockingDetails(value).isMock() ?
                     Mockito.mockingDetails(value).getMockCreationSettings().getTypeToMock() :

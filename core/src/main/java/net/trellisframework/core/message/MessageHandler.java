@@ -7,7 +7,7 @@ public interface MessageHandler {
     String name();
 
     default String getMessage() {
-        return getMessage(Language.FA);
+        return getMessage(Language.EN);
     }
 
     default Integer getCode() {
@@ -15,7 +15,7 @@ public interface MessageHandler {
     }
 
     default String getMessage(Object... var1) {
-        String result = MessageHelper.getMessage(Language.FA, name(), var1);
+        String result = MessageHelper.getMessage(Language.EN, name(), var1);
         return StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result;
     }
 

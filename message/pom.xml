@@ -13,7 +13,7 @@
     <properties>
         <firebase.version>9.2.0</firebase.version>
         <axis.version>1.4</axis.version>
-        <simple.mail.version>7.5.0</simple.mail.version>
+        <simple.mail.version>8.3.1</simple.mail.version>
         <jakarta.mail.version>2.0.1</jakarta.mail.version>
         <jaxb-api.version>2.3.1</jaxb-api.version>
         <grpc.version>1.42.2</grpc.version>
@@ -30,7 +30,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <version>${spring.boot.version}</version>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

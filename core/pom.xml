@@ -11,17 +11,16 @@
     <artifactId>core</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <google.phone.version>8.12.44</google.phone.version>
-        <google.guava.version>31.1-jre</google.guava.version>
-        <javax.validation.version>2.0.1.Final</javax.validation.version>
-        <lombok.version>1.18.22</lombok.version>
+        <google.phone.version>8.13.23</google.phone.version>
+        <google.guava.version>32.1.3-jre</google.guava.version>
+        <jakarta.validation.version>3.0.2</jakarta.validation.version>
+        <lombok.version>1.18.30</lombok.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <version>${spring.boot.version}</version>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
@@ -34,14 +33,9 @@
             <version>${google.guava.version}</version>
         </dependency>
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-            <version>${javax.validation.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <version>${jakarta.validation.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -52,6 +46,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
             <version>${spring.boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
         </dependency>
     </dependencies>
 </project>

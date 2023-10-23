@@ -4,10 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import net.trellisframework.core.payload.Payload;
 import net.trellisframework.util.environment.EnvironmentUtil;
 import org.apache.commons.lang3.StringUtils;
 
-import javax.validation.Payload;
 
 @Data
 @NoArgsConstructor

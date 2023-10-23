@@ -12,8 +12,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>oauth-core</module>
-        <module>oauth-resource</module>
         <module>oauth-resource-keycloak</module>
-        <module>oauth-resource-reactive</module>
     </modules>
 </project>
