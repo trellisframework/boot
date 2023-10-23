@@ -6,7 +6,7 @@
     <parent>
         <groupId>net.trellisframework.boot</groupId>
         <artifactId>grpc</artifactId>
-        <version>2.0.0-beta</version>
+        <version>0.0.0</version>
     </parent>
     <artifactId>grpc-server</artifactId>
     <packaging>jar</packaging>
