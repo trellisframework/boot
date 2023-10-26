@@ -1,5 +1,6 @@
 package net.trellisframework.data.sql.configuration;
 
+import com.querydsl.jpa.JPQLTemplates;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -24,6 +25,6 @@ public class QuerydslAutoConfiguration {
     @ConditionalOnMissingBean
     @Bean
     public JPAQueryFactory queryFactory() {
-        return new JPAQueryFactory(entityManager);
+        return new JPAQueryFactory(JPQLTemplates.DEFAULT, entityManager);
     }
 }
