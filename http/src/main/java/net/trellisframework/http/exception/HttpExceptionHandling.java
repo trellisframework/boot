@@ -173,7 +173,7 @@ public class HttpExceptionHandling {
         if (constraintViolations == null || ex.getConstraintViolations().isEmpty())
             return new ResponseEntity<>(HttpStatus.OK);
         String firstErrorMessage = ex.getConstraintViolations().stream().map(ConstraintViolation::getMessage).toList().stream().findFirst().orElse(StringUtils.EMPTY);
-        return extractMessage(firstErrorMessage, HttpStatus.INTERNAL_SERVER_ERROR, req);
+        return extractMessage(firstErrorMessage, HttpStatus.BAD_REQUEST, req);
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class})
