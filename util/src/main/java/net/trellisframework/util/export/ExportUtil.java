@@ -1,14 +1,5 @@
 package net.trellisframework.util.export;
 
-import com.google.common.collect.Lists;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.FontFactory;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.http.exception.InternalServerException;
 import org.apache.commons.csv.CSVFormat;
@@ -19,12 +10,10 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,70 +22,8 @@ import java.util.Optional;
 public class ExportUtil {
     private static final String EXCEL_EXTENSION = ".xlsx";
     private static final String CSV_EXTENSION = ".csv";
-    private static final String PDF_EXTENSION = ".pdf";
     private static final String TSV_EXTENSION = ".tsv";
     private static final String RESULT_SHEET_NAME = "Result";
-
-    public static class PDF {
-
-        public static File export(String path, List<?> list) {
-            return export(path, list, false);
-        }
-
-        public static File export(String path, List<?> list, boolean append) {
-            return export(path, list, String.valueOf(System.currentTimeMillis()), append);
-        }
-
-        public static File export(String path, List<?> list, String fileName, boolean append) {
-            return export(path, list, fileName, Optional.ofNullable(Thread.currentThread().getContextClassLoader().getResource("arial.ttf")).map(URL::getPath).orElse("resources/arial.ttf"), append);
-        }
-
-        public static File export(String path, List<?> list, String fileName, String font, boolean append) {
-            return export(new File(FilenameUtils.concat(path, FilenameUtils.removeExtension(fileName) + PDF_EXTENSION)), list, font, append);
-        }
-
-        public static File export(File file, List<?> list, String font) {
-            return export(file, list, font, false);
-        }
-
-        public static File export(File file, List<?> list, String font, boolean append) {
-            try {
-                String sheet_name = "Sheet1";
-                Font normal = FontFactory.getFont(font, BaseFont.IDENTITY_H, 8);
-                File excel = Excel.export(file.getParent(), file.getName(), sheet_name, list, append);
-                FileInputStream input_document = new FileInputStream(excel);
-                XSSFSheet sheet = getSheet(sheet_name, input_document);
-                Document document = new Document();
-                PdfWriter.getInstance(document, new FileOutputStream(file));
-                document.open();
-                PdfPTable pdfPTable = new PdfPTable(getColumnName(list).size());
-                pdfPTable.setWidthPercentage(100);
-                pdfPTable.setRunDirection(PdfWriter.RUN_DIRECTION_RTL);
-                for (Row row : Lists.newArrayList(sheet.iterator())) {
-                    for (Cell cell : Lists.newArrayList(row.cellIterator())) {
-                        pdfPTable.addCell(new PdfPCell(new Phrase(cell.getStringCellValue(), normal)));
-                    }
-                }
-                document.add(pdfPTable);
-                document.close();
-                input_document.close();
-                return file;
-            } catch (Exception e) {
-                Logger.error("ExportToPdf", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
-        }
-
-        private static XSSFSheet getSheet(String sheet_name, FileInputStream input_document) {
-            try (XSSFWorkbook workbook = new XSSFWorkbook(input_document)) {
-                return workbook.getSheet(sheet_name);
-            } catch (Exception e) {
-                Logger.error("getSheet", e.getMessage(), e);
-                throw new InternalServerException(e.getMessage());
-            }
-        }
-
-    }
 
     public static class Excel {
         public static File export(String path, List<?> list) {

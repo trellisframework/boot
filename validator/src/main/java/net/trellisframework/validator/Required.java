@@ -1,21 +1,21 @@
 package net.trellisframework.validator;
 
 
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.Payload;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintValidatorContextImpl;
 import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintViolationCreationContext;
 
-import jakarta.validation.Constraint;
-import jakarta.validation.ConstraintValidator;
-import jakarta.validation.ConstraintValidatorContext;
-import jakarta.validation.Payload;
-import java.io.Serializable;
 import java.lang.annotation.*;
 import java.util.Collection;
+import java.util.Map;
 
 @Documented
-@Constraint(validatedBy = {Required.RequiredValidator.class, Required.RequiredCollectionValidator.class, Required.RequiredArrayValidator.class})
+@Constraint(validatedBy = {Required.RequiredValidator.class, Required.RequiredCollectionValidator.class, Required.RequiredArrayValidator.class, Required.RequiredMapValidator.class})
 @Target({ElementType.METHOD, ElementType.FIELD, ElementType.ANNOTATION_TYPE, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Required {
@@ -54,10 +54,10 @@ public @interface Required {
         protected abstract boolean isValid(T field);
     }
 
-    class RequiredValidator extends AbstractRequiredValidator<Serializable> {
+    class RequiredValidator extends AbstractRequiredValidator<Object> {
 
         @Override
-        protected boolean isValid(Serializable field) {
+        protected boolean isValid(Object field) {
             return !(ObjectUtils.isEmpty(field) || StringUtils.isBlank(field.toString()));
         }
     }
@@ -69,9 +69,16 @@ public @interface Required {
         }
     }
 
-    class RequiredArrayValidator extends AbstractRequiredValidator<Serializable[]> {
+    class RequiredArrayValidator extends AbstractRequiredValidator<Object[]> {
         @Override
-        protected boolean isValid(Serializable[] field) {
+        protected boolean isValid(Object[] field) {
+            return !(ObjectUtils.isEmpty(field));
+        }
+    }
+
+    class RequiredMapValidator extends AbstractRequiredValidator<Map<?,?>> {
+        @Override
+        protected boolean isValid(Map<?,?> field) {
             return !(ObjectUtils.isEmpty(field));
         }
     }
