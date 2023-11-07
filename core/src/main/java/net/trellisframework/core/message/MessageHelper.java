@@ -15,7 +15,7 @@ public class MessageHelper {
 
     public static Integer getCode(String message) {
         try {
-            Locale locale = new Locale("no");
+            Locale locale = Locale.of("no");
             ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
             return Integer.valueOf(bundle.getString(message));
         } catch (Exception e) {
@@ -26,9 +26,9 @@ public class MessageHelper {
     public static String getMessage(Language language, String message) {
         try {
             language = language == null ? AppInfo.getLanguage() : language;
-            Locale locale = new Locale(language.name());
+            Locale locale = Locale.of(language.name());
             ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
-            return bundle.getString(message);
+            return bundle.getString(message).trim();
         } catch (Exception e) {
             return StringUtils.EMPTY;
         }
@@ -41,9 +41,9 @@ public class MessageHelper {
     public static String getMessage(Language language, String message, Object... var1) {
         try {
             language = language == null ? AppInfo.getLanguage() : language;
-            Locale locale = new Locale(language.name());
+            Locale locale = Locale.of(language.name());
             ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
-            return MessageFormat.format(bundle.getString(message), var1);
+            return MessageFormat.format(bundle.getString(message), var1).trim();
         } catch (Exception e) {
             return StringUtils.EMPTY;
         }

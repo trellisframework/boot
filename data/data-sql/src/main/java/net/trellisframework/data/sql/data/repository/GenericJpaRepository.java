@@ -79,9 +79,9 @@ public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEn
         return getFactory().insert(var1);
     }
 
-    default Page<TEntity> findAll(JPQLQuery<TEntity> query, Pageable pageable) {
+    default <T> Page<T> findAll(JPQLQuery<T> query, Pageable pageable) {
         Querydsl querydsl = new Querydsl(getEntityManager(), (new PathBuilderFactory()).create(query.getType()));
-        JPQLQuery<TEntity> q = querydsl.applySorting(pageable.getSort(), query.limit(pageable.getPageSize()).offset(pageable.getOffset()));
+        JPQLQuery<T> q = querydsl.applySorting(pageable.getSort(), query.limit(pageable.getPageSize()).offset(pageable.getOffset()));
         return new PageImpl<>(q.fetch(), pageable, query.fetchCount());
     }
 }

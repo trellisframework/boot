@@ -52,36 +52,9 @@
             <version>${jakarta.mail.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.axis</groupId>
-            <artifactId>axis</artifactId>
-            <version>${axis.version}</version>
-        </dependency>
-        <dependency>
             <groupId>javax.xml.rpc</groupId>
             <artifactId>javax.xml.rpc-api</artifactId>
             <version>${javax.xml.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.firebase</groupId>
-            <artifactId>firebase-admin</artifactId>
-            <version>${firebase.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.24.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kavenegar</groupId>
-            <artifactId>kavenegar-java</artifactId>
-            <version>v2.0.3</version>
         </dependency>
     </dependencies>
     <repositories>
