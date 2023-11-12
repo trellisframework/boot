@@ -5,9 +5,12 @@ import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.oauth.resource.keycloak.constant.KeycloakClaimNames;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +20,6 @@ import java.util.stream.Collectors;
 
 public class OAuthSecurityContext {
 
-    private static JwtDecoder jwtDecoder;
 
     public static Principle getPrinciple() {
         Jwt jwt = ((Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal());
@@ -29,12 +31,9 @@ public class OAuthSecurityContext {
         return principle == null ? StringUtils.EMPTY : principle.getId();
     }
 
-    public static Optional<Principle> findPrincipleByAccessToken(String token) {
+    public static Optional<Principle> findPrincipleByAccessToken(OAuth2ResourceServerProperties.Jwt jwt, String token) {
         try {
-            if (jwtDecoder == null)
-                jwtDecoder = ApplicationContextProvider.context.getBean(JwtDecoder.class);
-            jwtDecoder.decode(token);
-            return Optional.ofNullable(jwtDecoder.decode(token)).map(OAuthSecurityContext::getPrinciple);
+            return Optional.ofNullable(JwtDecoders.fromIssuerLocation(jwt.getIssuerUri()).decode(token)).map(OAuthSecurityContext::getPrinciple);
         } catch (Exception e) {
             Logger.error("JwtDecodeException", e.getMessage(), e);
             return Optional.empty();
