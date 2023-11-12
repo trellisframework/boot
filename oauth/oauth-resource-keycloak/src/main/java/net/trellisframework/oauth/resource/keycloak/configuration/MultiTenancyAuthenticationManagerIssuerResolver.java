@@ -36,8 +36,8 @@ public class MultiTenancyAuthenticationManagerIssuerResolver implements Authenti
     @Override
     public AuthenticationManager resolve(HttpServletRequest context) {
         String tenantId = issuerConverter.convert(context);
-        return Optional.ofNullable(action).map(x -> x.execute(context)).orElse(properties.findByTenantId(tenantId))
-                .map(p -> managers.computeIfAbsent(tenantId, (id) -> provider(p)::authenticate))
+        Optional<OAuth2ResourceServerProperties.Jwt> jwt = action != null ? action.execute(context) : properties.findByTenantId(tenantId);
+        return jwt.map(p -> managers.computeIfAbsent(tenantId, (id) -> provider(p)::authenticate))
                 .orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
     }
 
