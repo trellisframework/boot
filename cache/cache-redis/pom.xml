@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>net.trellisframework.boot</groupId>
-        <artifactId>data</artifactId>
+        <artifactId>cache</artifactId>
         <version>0.0.0</version>
     </parent>
-    <artifactId>data-redis</artifactId>
+    <artifactId>cache-redis</artifactId>
     <packaging>jar</packaging>
     <properties>
         <jedis.version>4.1.1</jedis.version>
