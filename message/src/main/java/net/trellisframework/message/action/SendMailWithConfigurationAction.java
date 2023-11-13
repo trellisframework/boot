@@ -8,10 +8,10 @@ import net.trellisframework.message.payload.EmbeddedData;
 import net.trellisframework.message.payload.SendMailRequest;
 import net.trellisframework.message.payload.SendMessageResponse;
 import org.apache.commons.lang3.StringUtils;
-import org.simplejavamail.api.email.Email;
 import org.simplejavamail.api.email.EmailPopulatingBuilder;
 import org.simplejavamail.converter.EmailConverter;
 import org.simplejavamail.email.EmailBuilder;
+import org.simplejavamail.email.internal.InternalEmail;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -44,7 +44,7 @@ public class SendMailWithConfigurationAction implements Action2<SendMessageRespo
                     }
                 }
             }
-            Email email = new Email(builder);
+            InternalEmail email = new InternalEmail(builder);
             Session session = Session.getInstance(props, new Authenticator() {
                 protected PasswordAuthentication getPasswordAuthentication() {
                     return new PasswordAuthentication(config.getUsername(), config.getPassword());
