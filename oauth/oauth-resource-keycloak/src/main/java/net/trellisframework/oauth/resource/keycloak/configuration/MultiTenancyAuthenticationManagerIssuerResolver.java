@@ -5,6 +5,7 @@ import lombok.NonNull;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.oauth.resource.keycloak.constant.Messages;
 import net.trellisframework.oauth.resource.keycloak.action.FindTenantByIdAction;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -36,9 +37,15 @@ public class MultiTenancyAuthenticationManagerIssuerResolver implements Authenti
     @Override
     public AuthenticationManager resolve(HttpServletRequest context) {
         String tenantId = issuerConverter.convert(context);
-        Optional<OAuth2ResourceServerProperties.Jwt> jwt = action != null ? action.execute(context) : properties.findByTenantId(tenantId);
-        return jwt.map(p -> managers.computeIfAbsent(tenantId, (id) -> provider(p)::authenticate))
-                .orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
+        if (StringUtils.isBlank(tenantId))
+            throw new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage());
+        AuthenticationManager manager = managers.get(tenantId);
+        if (manager == null) {
+            OAuth2ResourceServerProperties.Jwt jwt = (action != null ? action.execute(context) : properties.findByTenantId(tenantId)).orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
+            manager = provider(jwt)::authenticate;
+            managers.put(tenantId, manager);
+        }
+        return manager;
     }
 
     private JwtAuthenticationProvider provider(OAuth2ResourceServerProperties.Jwt property) {

@@ -1,6 +1,7 @@
 package net.trellisframework.communication.grpc.client.factory;
 
 import io.grpc.Channel;
+import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractBlockingStub;
@@ -22,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class GrpcInvocationHandler implements InvocationHandler {
-    private final Channel channel;
+    private final ManagedChannel channel;
     private final int timeout;
     private final Class<?> service;
 
@@ -41,9 +42,7 @@ public class GrpcInvocationHandler implements InvocationHandler {
             AbstractBlockingStub<?> stub = createGrpcStub(service, channel);
             stub = stub.withDeadlineAfter(timeout, TimeUnit.SECONDS);
             Object request = args[0];
-            Object response;
-            response = invokeGrpcMethod(stub, endpoint.getName(), request, endpoint.getException());
-            return response;
+            return invokeGrpcMethod(stub, endpoint.getName(), request, endpoint.getException());
         }
         throw new UnsupportedOperationException("Method not supported: " + method.getName());
     }
@@ -67,6 +66,8 @@ public class GrpcInvocationHandler implements InvocationHandler {
                 throw new HttpException(JsonUtil.toObject(message, clazz));
             }
             throw new ProcessingException(Messages.FAILED_TO_INVOKE_GRPC_METHOD);
+        } finally {
+            channel.shutdown();
         }
     }
 
