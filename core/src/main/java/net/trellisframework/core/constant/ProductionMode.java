@@ -1,6 +1,8 @@
 package net.trellisframework.core.constant;
 
 public enum ProductionMode {
-    PRODUCTION,
-    DEVELOPMENT;
+    LOCAL,
+    DEVELOPMENT,
+    STAGING,
+    PRODUCTION;
 }
