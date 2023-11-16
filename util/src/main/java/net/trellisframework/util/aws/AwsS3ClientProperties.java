@@ -20,6 +20,7 @@ public class AwsS3ClientProperties {
     @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     @Validated
     public static class S3PropertiesDefinition {
+        private String endpoint;
         private Regions region;
         private Credential credential;
     }
