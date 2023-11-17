@@ -3,24 +3,26 @@ package net.trellisframework.core;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.core.constant.Country;
 import net.trellisframework.core.constant.Language;
-import net.trellisframework.core.constant.ProductionMode;
+import net.trellisframework.core.constant.ApplicationMode;
 import net.trellisframework.core.config.ProductionPropertiesDefinition;
 
 import java.util.Optional;
 
 public class AppInfo {
     static ProductionPropertiesDefinition properties;
-    static ProductionMode mode;
+    static ApplicationMode mode;
     static Language language;
     static Country country;
 
     public static boolean isProductionMode() {
-        try {
-            mode = Optional.ofNullable(mode).orElse(getProperties().getMode());
-        } catch (Exception e) {
-            mode = ProductionMode.PRODUCTION;
+        return ApplicationMode.PRODUCTION.equals(getApplicationMode());
+    }
+
+    public static ApplicationMode getApplicationMode() {
+        if (mode == null) {
+            mode = Optional.ofNullable(getProperties().getMode()).orElse(ApplicationMode.PRODUCTION);
         }
-        return ProductionMode.PRODUCTION.equals(mode);
+        return mode;
     }
 
     public static Language getLanguage() {
