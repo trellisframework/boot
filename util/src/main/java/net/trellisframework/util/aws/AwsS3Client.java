@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
 import net.trellisframework.core.application.ApplicationContextProvider;
+import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
 
@@ -41,14 +42,15 @@ public class AwsS3Client {
         return client.getUrl(bucket, key).toString();
     }
 
-    public static String upload(String bucket, String serviceName, File file, boolean override) throws AssertionError {
-        String fileKey = serviceName + "_" + file.getName();
+    public static String upload(String bucket, String key, File file, boolean override) {
         Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
         AmazonS3 client = getClient(properties);
-        if (!override && client.doesObjectExist(properties.getKey(), fileKey))
-            throw new AssertionError(Messages.FILE_ALREADY_EXIST);
-        client.putObject(new PutObjectRequest(bucket, fileKey, file));
-        return fileKey;
+        if (!override && client.doesObjectExist(properties.getKey(), key)) {
+            throw new ConflictException(Messages.FILE_ALREADY_EXIST);
+        } else {
+            client.putObject(new PutObjectRequest(bucket, key, file));
+            return key;
+        }
     }
 
     public static void download(String bucket, String key, File file) throws NotFoundException {

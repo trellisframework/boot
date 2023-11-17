@@ -6,5 +6,6 @@ public enum Messages implements MessageHandler {
     BUCKET_NOT_FOUND,
     CAN_NOT_DESERIALIZE_OBJECT,
     FILE_ALREADY_EXIST,
-    FILE_NOT_FOUND
+    FILE_NOT_FOUND,
+    CAN_NOT_CREATE_FILE;
 }
