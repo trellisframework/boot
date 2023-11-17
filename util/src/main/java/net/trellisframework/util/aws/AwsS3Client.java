@@ -6,10 +6,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.*;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
@@ -35,6 +32,13 @@ public class AwsS3Client {
         GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(properties.getKey(), key, method);
         generatePresignedUrlRequest.setExpiration(Date.from(Instant.now().plus(expireDuration, expireDurationUnit)));
         return client.generatePresignedUrl(generatePresignedUrlRequest).toString();
+    }
+
+    public static String getPublicUrl(String bucket, String key) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+        AmazonS3 client = getClient(properties);
+        client.setObjectAcl(bucket, key, CannedAccessControlList.PublicRead);
+        return client.getUrl(bucket, key).toString();
     }
 
     public static String upload(String bucket, String serviceName, File file, boolean override) throws AssertionError {
