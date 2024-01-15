@@ -8,8 +8,11 @@ import com.querydsl.core.types.EntityPath;
 import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.dsl.PathBuilderFactory;
 import com.querydsl.jpa.JPQLQuery;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.core.data.repository.GenericRepository;
 import org.springframework.data.domain.Page;
@@ -19,15 +22,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.support.Querydsl;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
+import org.springframework.data.support.PageableExecutionUtils;
+
+import static org.springframework.data.jpa.repository.EntityGraph.EntityGraphType;
 
 @NoRepositoryBean
 public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEntity, ID>, JpaRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {
 
-    private JPAQueryFactory getFactory() {
+    default JPAQueryFactory getFactory() {
         return ApplicationContextProvider.context.getBean(JPAQueryFactory.class);
     }
 
-    private EntityManager getEntityManager() {
+    default EntityManager getEntityManager() {
         return ApplicationContextProvider.context.getBean(EntityManager.class);
     }
 
@@ -35,39 +41,47 @@ public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEn
         return getFactory().delete(var1);
     }
 
-    default <T> JPQLQuery<T> select(Expression<T> var1) {
+    default <T> JPAQuery<T> select(Expression<T> var1) {
         return getFactory().select(var1);
     }
 
-    default JPQLQuery<Tuple> select(Expression<?>... var1) {
+    default <T> JPAQuery<T> select(Expression<T> var1, EntityGraphType type, String graphName) {
+        return getFactory().select(var1).setHint(type.getKey(), getEntityManager().getEntityGraph(graphName));
+    }
+
+    default JPAQuery<Tuple> select(Expression<?>... var1) {
         return getFactory().select(var1);
     }
 
-    default <T> JPQLQuery<T> selectDistinct(Expression<T> var1) {
+    default JPAQuery<Tuple> select(EntityGraphType type, String graphName, Expression<?>... var1) {
+        return getFactory().select(var1).setHint(type.getKey(), getEntityManager().getEntityGraph(graphName));
+    }
+
+    default <T> JPAQuery<T> selectDistinct(Expression<T> var1) {
         return getFactory().selectDistinct(var1);
     }
 
-    default JPQLQuery<Tuple> selectDistinct(Expression<?>... var1) {
+    default JPAQuery<Tuple> selectDistinct(Expression<?>... var1) {
         return getFactory().selectDistinct(var1);
     }
 
-    default JPQLQuery<Integer> selectOne() {
+    default JPAQuery<Integer> selectOne() {
         return getFactory().selectOne();
     }
 
-    default JPQLQuery<Integer> selectZero() {
+    default JPAQuery<Integer> selectZero() {
         return getFactory().selectZero();
     }
 
-    default <T> JPQLQuery<T> selectFrom(EntityPath<T> var1) {
+    default <T> JPAQuery<T> selectFrom(EntityPath<T> var1) {
         return getFactory().selectFrom(var1);
     }
 
-    default JPQLQuery<?> from(EntityPath<?> var1) {
+    default JPAQuery<?> from(EntityPath<?> var1) {
         return getFactory().from(var1);
     }
 
-    default JPQLQuery<?> from(EntityPath<?>... var1) {
+    default JPAQuery<?> from(EntityPath<?>... var1) {
         return getFactory().from(var1);
     }
 
@@ -81,7 +95,6 @@ public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEn
 
     default <T> Page<T> findAll(JPQLQuery<T> query, Pageable pageable) {
         Querydsl querydsl = new Querydsl(getEntityManager(), (new PathBuilderFactory()).create(query.getType()));
-        JPQLQuery<T> q = querydsl.applySorting(pageable.getSort(), query.limit(pageable.getPageSize()).offset(pageable.getOffset()));
-        return new PageImpl<>(q.fetch(), pageable, query.fetchCount());
+        return PageableExecutionUtils.getPage(querydsl.applyPagination(pageable, query).fetch(), pageable, query::fetchCount);
     }
 }

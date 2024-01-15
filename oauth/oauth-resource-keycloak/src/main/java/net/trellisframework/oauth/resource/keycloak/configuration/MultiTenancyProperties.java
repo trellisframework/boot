@@ -19,6 +19,6 @@ public class MultiTenancyProperties {
     private Map<String, OAuth2ResourceServerProperties.Jwt> issuers;
 
     public Optional<OAuth2ResourceServerProperties.Jwt> findByTenantId(String tenantId) {
-        return Optional.ofNullable(issuers.get(tenantId));
+        return Optional.ofNullable(issuers).map(x -> x.get(tenantId));
     }
 }

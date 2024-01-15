@@ -41,7 +41,12 @@ public class MultiTenancyAuthenticationManagerIssuerResolver implements Authenti
             throw new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage());
         AuthenticationManager manager = managers.get(tenantId);
         if (manager == null) {
-            OAuth2ResourceServerProperties.Jwt jwt = (action != null ? action.execute(context) : properties.findByTenantId(tenantId)).orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
+            OAuth2ResourceServerProperties.Jwt jwt = properties.isEnabled() ? properties.findByTenantId(tenantId).orElse(null) : null;
+            if (jwt == null) {
+                if (action == null)
+                    throw new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage());
+                jwt = action.execute(context).orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
+            }
             manager = provider(jwt)::authenticate;
             managers.put(tenantId, manager);
         }
