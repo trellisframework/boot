@@ -17,5 +17,6 @@
         <module>data-core</module>
         <module>data-sql</module>
         <module>data-mongo</module>
+        <module>data-elastic</module>
     </modules>
 </project>

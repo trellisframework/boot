@@ -1,6 +1,8 @@
 package net.trellisframework.data.core.data.repository;
 
 
-public interface GenericRepository<TEntity, ID> {
+import net.trellisframework.data.core.util.PagingModelMapper;
+
+public interface GenericRepository extends PagingModelMapper {
 
 }

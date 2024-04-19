@@ -10,13 +10,10 @@ import com.querydsl.core.types.dsl.PathBuilderFactory;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import jakarta.persistence.EntityGraph;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.core.data.repository.GenericRepository;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.support.Querydsl;
@@ -27,7 +24,7 @@ import org.springframework.data.support.PageableExecutionUtils;
 import static org.springframework.data.jpa.repository.EntityGraph.EntityGraphType;
 
 @NoRepositoryBean
-public interface GenericJpaRepository<TEntity, ID> extends GenericRepository<TEntity, ID>, JpaRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {
+public interface GenericJpaRepository<TEntity, ID> extends GenericRepository, JpaRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {
 
     default JPAQueryFactory getFactory() {
         return ApplicationContextProvider.context.getBean(JPAQueryFactory.class);

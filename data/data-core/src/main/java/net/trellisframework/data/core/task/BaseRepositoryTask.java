@@ -16,7 +16,7 @@ import java.lang.reflect.ParameterizedType;
         propagation = Propagation.REQUIRES_NEW,
         rollbackFor = {TransactionSystemException.class}
 )
-public interface BaseRepositoryTask<R extends GenericRepository<?, ?>> extends BaseTask, PagingModelMapper, InjectorBeanProvider {
+public interface BaseRepositoryTask<R extends GenericRepository> extends BaseTask, PagingModelMapper, InjectorBeanProvider {
 
     default R getRepository() {
         return getBean((Class<R>) (((ParameterizedType) this.getClass().getGenericInterfaces()[0]).getActualTypeArguments()[0]));

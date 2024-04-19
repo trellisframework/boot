@@ -6,6 +6,6 @@ import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 
 @NoRepositoryBean
-public interface GenericMongoRepository<TEntity, ID> extends GenericRepository<TEntity, ID>, MongoRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {
+public interface GenericMongoRepository<TEntity, ID> extends GenericRepository, MongoRepository<TEntity, ID>, QuerydslPredicateExecutor<TEntity> {
 
 }
