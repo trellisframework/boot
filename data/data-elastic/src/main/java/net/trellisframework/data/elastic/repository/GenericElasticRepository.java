@@ -39,7 +39,7 @@ public interface GenericElasticRepository<TEntity, ID> extends GenericRepository
             if (pageable.getSort().isSorted()) {
                 pageable.getSort().forEach(order ->
                         builder.sort(q -> q.field(f -> f.field(order.getProperty()).order(order.getDirection() == Sort.Direction.ASC ? SortOrder.Asc : SortOrder.Desc)))
-                );
+                        );
             }
             builder.trackTotalHits(trackHits);
             SearchResponse<T> response = ElasticsearchConfig.getInstance().search(function.apply(builder).build(), clazz);
