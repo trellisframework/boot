@@ -9,7 +9,6 @@ import net.trellisframework.data.core.data.repository.GenericRepository;
 import net.trellisframework.data.elastic.configuration.ElasticsearchConfig;
 import net.trellisframework.data.elastic.mapper.EsModelMapper;
 import net.trellisframework.data.elastic.payload.EsPayload;
-import net.trellisframework.data.elastic.util.QueryDSLJoinString;
 import net.trellisframework.http.exception.BadGatewayException;
 import net.trellisframework.http.exception.ServiceUnavailableException;
 import org.springframework.data.domain.Page;
@@ -21,7 +20,7 @@ import java.io.IOException;
 import java.util.function.Function;
 
 @NoRepositoryBean
-public interface GenericElasticRepository<TEntity, ID> extends GenericRepository, QueryDSLJoinString, EsModelMapper {
+public interface GenericElasticRepository<TEntity, ID> extends GenericRepository, EsModelMapper {
 
     default <T> SearchResponse<T> search(Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> function, Class<T> clazz) {
         try {

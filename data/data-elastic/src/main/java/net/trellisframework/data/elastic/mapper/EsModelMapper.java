@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public interface EsModelMapper extends PagingModelMapper {
@@ -22,8 +23,12 @@ public interface EsModelMapper extends PagingModelMapper {
         return response;
     }
 
+    default <T extends EsPayload> List<T> plainToClass(SearchResponse<T> data) {
+        return Optional.ofNullable(data).map(ResponseBody::hits).map(HitsMetadata::hits).orElse(new ArrayList<>()).stream().map(this::plainToClass).toList();
+    }
+
     default <T extends EsPayload> Page<T> plainToClass(SearchResponse<T> data, Pageable pageable) {
-        return new PageImpl<>(Optional.ofNullable(data).map(ResponseBody::hits).map(HitsMetadata::hits).orElse(new ArrayList<>()).stream().map(this::plainToClass).toList(),
+        return new PageImpl<>(plainToClass(data),
                 pageable,
                 Optional.ofNullable(data).map(ResponseBody::hits).map(HitsMetadata::total).map(TotalHits::value).orElse(0L));
     }
