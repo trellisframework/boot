@@ -26,4 +26,9 @@ public class RequestHelper {
         HttpServletRequest request = ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
         return request.getRequestURI();
     }
+
+    public static Object getRequestParam(String parameter) {
+        HttpServletRequest request = ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
+        return request.getParameter(parameter);
+    }
 }
