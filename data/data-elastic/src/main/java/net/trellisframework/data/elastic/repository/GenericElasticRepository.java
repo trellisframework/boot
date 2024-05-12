@@ -43,7 +43,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
         Class<TEntity> clazz = getEntityClass();
         if (clazz.isAnnotationPresent(Document.class))
             return clazz.getAnnotation(Document.class).value();
-        return StringUtils.replace(StringUtils.replaceIgnoreCase(clazz.getSimpleName(), "entity", ""), "document", "");
+        return StringUtils.lowerCase(StringUtils.replace(StringUtils.replaceIgnoreCase(clazz.getSimpleName(), "entity", ""), "document", ""));
     }
 
     default <TDocument> SearchResponse<TDocument> search(Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> function, Class<TDocument> clazz) {
