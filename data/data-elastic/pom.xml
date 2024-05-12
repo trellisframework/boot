@@ -16,6 +16,11 @@
             <artifactId>data-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>net.trellisframework.boot</groupId>
+            <artifactId>util</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>co.elastic.clients</groupId>

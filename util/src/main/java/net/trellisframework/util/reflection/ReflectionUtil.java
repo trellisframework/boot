@@ -4,6 +4,7 @@ import net.trellisframework.http.exception.NotFoundException;
 
 import java.lang.reflect.Field;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 public class ReflectionUtil {
@@ -31,6 +32,21 @@ public class ReflectionUtil {
             targetField.set(currentObject, value);
         } catch (Exception e) {
             throw new NotFoundException("Cannot set " + field + " value");
+        }
+    }
+
+    public static <T> T getPropertyValue(Object bean, String field, T defaultValue) {
+        T response = getPropertyValue(bean, field);
+        return Optional.ofNullable(response).orElse(defaultValue);
+    }
+
+    public static <T> T getPropertyValue(Object bean, String field) {
+        try {
+            Field privateField = bean.getClass().getDeclaredField(field);
+            privateField.setAccessible(true);
+            return (T) privateField.get(bean);
+        } catch (Exception e) {
+            return null;
         }
     }
 
