@@ -2,27 +2,39 @@ package net.trellisframework.util.bool;
 
 import lombok.AllArgsConstructor;
 
-import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 @AllArgsConstructor(staticName = "of")
 public class Bool {
 
     private final boolean value;
 
-    public void ifTrue(Consumer<Bool> action) {
-        if (value)
-            action.accept(this);
+    public Bool(Predicate<Bool> when) {
+        this.value = when.test(this);
     }
 
-    public void ifFalse(Consumer<Bool> action) {
+    public static Bool of(String value) {
+        return of("true".equalsIgnoreCase(value) || "1".equalsIgnoreCase(value));
+    }
+
+    public static Bool of(Predicate<Bool> when) {
+        return new Bool(when);
+    }
+
+    public void ifTrue(Runnable then) {
+        if (value)
+            then.run();
+    }
+
+    public void ifFalse(Runnable then) {
         if (!value)
-            action.accept(this);
+            then.run();
     }
 
-    public void ifTrueOrElse(Consumer<Bool> trueConsumer, Consumer<Bool> falseConsumer) {
+    public void ifTrueOrElse(Runnable thenTrue, Runnable thenFalse) {
         if (value)
-            trueConsumer.accept(this);
-        else falseConsumer.accept(this);
+            thenTrue.run();
+        else thenFalse.run();
 
     }
 
