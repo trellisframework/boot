@@ -68,7 +68,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
         try {
             ElasticRequest request = fn.apply(ElasticRequest.builder());
             CountRequest.Builder builder = new CountRequest.Builder();
-            builder.index(ObjectUtil.defaultIfEmpty(request.getIndices(), List.of(index_name())));
+            builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);
             return Optional.ofNullable(ElasticsearchConfig.getInstance().count(s -> builder)).map(CountResponse::count).orElse(0L);
         } catch (IOException e) {
@@ -77,7 +77,11 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
     }
 
     default List<TEntity> findAll(Function<ElasticRequest.ElasticRequestBuilder, ElasticRequest> fn) {
-        return findAll(fn, Pageable.unpaged()).getContent();
+        return findAll(fn, getEntityClass());
+    }
+
+    default <TDocument extends CoreDocument> List<TDocument> findAll(Function<ElasticRequest.ElasticRequestBuilder, ElasticRequest> fn, Class<TDocument> clazz) {
+        return findAll(fn, Pageable.unpaged(), clazz).getContent();
     }
 
     default Page<TEntity> findAll(Function<ElasticRequest.ElasticRequestBuilder, ElasticRequest> fn, Pageable pageable) {
@@ -98,7 +102,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
                     );
                 }
             }
-            builder.index(ObjectUtil.defaultIfEmpty(request.getIndices(), List.of(index_name())));
+            builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);
             Optional.ofNullable(ObjectUtil.nullIfEmpty(request.getSources())).ifPresent(x -> builder.source(s -> s.filter(f -> f.includes(x))));
             builder.trackTotalHits(request.getTrackHits());
@@ -117,7 +121,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
         try {
             ElasticRequest request = fn.apply(ElasticRequest.builder());
             SearchRequest.Builder builder = new SearchRequest.Builder();
-            builder.index(ObjectUtil.defaultIfEmpty(request.getIndices(), List.of(index_name())));
+            builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             builder.source(b -> b.filter(f -> f.includes("id")));
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);
             if (Optional.ofNullable(pageable).map(Pageable::isPaged).orElse(false)) {
@@ -158,7 +162,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
         try {
             ElasticRequest request = fn.apply(ElasticRequest.builder());
             SearchRequest.Builder builder = new SearchRequest.Builder();
-            builder.index(ObjectUtil.defaultIfEmpty(request.getIndices(), List.of(index_name())));
+            builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             builder.size(0);
             builder.aggregations(aggregation);
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);
@@ -172,7 +176,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
         try {
             ElasticRequest request = fn.apply(ElasticRequest.builder());
             SearchRequest.Builder builder = new SearchRequest.Builder();
-            builder.index(ObjectUtil.defaultIfEmpty(request.getIndices(), List.of(index_name())));
+            builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             builder.size(0);
             builder.aggregations(key, aggregation);
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);

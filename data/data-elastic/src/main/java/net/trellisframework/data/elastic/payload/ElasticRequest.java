@@ -6,7 +6,6 @@ import co.elastic.clients.util.ObjectBuilder;
 import lombok.Builder;
 import lombok.Getter;
 import net.trellisframework.core.payload.Payload;
-import net.trellisframework.data.elastic.model.CoreDocument;
 import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.ArrayList;
@@ -17,7 +16,7 @@ import java.util.function.Function;
 @Getter
 @Builder
 public class ElasticRequest implements Payload {
-    private List<String> indices;
+    private List<String> index;
 
     private Function<Query.Builder, ObjectBuilder<Query>> filters;
 
@@ -29,15 +28,16 @@ public class ElasticRequest implements Payload {
     private TrackHits trackHits = TrackHits.of(x -> x.enabled(true));
 
     public static class ElasticRequestBuilder {
-        public ElasticRequestBuilder indices(String... indices) {
-            return indices(Optional.ofNullable(indices).map(List::of).orElse(null));
+        public ElasticRequestBuilder index(String... index) {
+            return index(Optional.ofNullable(index).map(List::of).orElse(null));
         }
 
-        public ElasticRequestBuilder indices(List<String> indices) {
-            if (ObjectUtils.isNotEmpty(indices))
-                if (this.indices == null)
-                    this.indices = new ArrayList<>();
-                this.indices.addAll(indices);
+        public ElasticRequestBuilder index(List<String> index) {
+            if (ObjectUtils.isNotEmpty(index)) {
+                if (this.index == null)
+                    this.index = new ArrayList<>();
+                this.index.addAll(index);
+            }
             return this;
         }
     }
