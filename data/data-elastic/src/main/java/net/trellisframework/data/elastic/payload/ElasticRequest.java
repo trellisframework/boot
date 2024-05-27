@@ -40,6 +40,19 @@ public class ElasticRequest implements Payload {
             }
             return this;
         }
+
+        public ElasticRequestBuilder sources(String... source) {
+            return sources(Optional.ofNullable(source).map(List::of).orElse(null));
+        }
+
+        public ElasticRequestBuilder sources(List<String> sources) {
+            if (ObjectUtils.isNotEmpty(sources)) {
+                if (this.sources == null)
+                    this.sources = new ArrayList<>();
+                this.sources.addAll(sources);
+            }
+            return this;
+        }
     }
 
 }
