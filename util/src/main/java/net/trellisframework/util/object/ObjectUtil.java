@@ -5,7 +5,7 @@ import org.apache.commons.lang3.ObjectUtils;
 public class ObjectUtil {
 
     public static boolean isAnyNull(Object... objects) {
-        if (objects == null || objects.length <= 0)
+        if (objects == null || objects.length == 0)
             return true;
         for (Object object : objects) {
             if (object == null)
@@ -15,7 +15,7 @@ public class ObjectUtil {
     }
 
     public static boolean isAllNull(Object... objects) {
-        if (objects == null || objects.length <= 0)
+        if (objects == null)
             return true;
         for (Object object : objects) {
             if (object != null)

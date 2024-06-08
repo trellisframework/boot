@@ -11,7 +11,7 @@
     <artifactId>http</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <retrofit.version>2.9.0</retrofit.version>
+        <retrofit.version>2.11.0</retrofit.version>
     </properties>
     <dependencies>
         <dependency>
@@ -33,11 +33,6 @@
         <dependency>
             <groupId>com.squareup.retrofit2</groupId>
             <artifactId>retrofit</artifactId>
-            <version>${retrofit.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup.retrofit2</groupId>
-            <artifactId>converter-gson</artifactId>
             <version>${retrofit.version}</version>
         </dependency>
     </dependencies>

@@ -14,8 +14,8 @@ public class StringUtil {
         return StringUtils.isBlank(value) ? null : value;
     }
 
-    public static String defaultIfBlank(String value) {
-        return StringUtils.isBlank(value) ? null : value;
+    public static String defaultIfBlank(String value, String defaultValue) {
+        return StringUtils.isBlank(value) ? defaultValue : value;
     }
 
     public static String convertToUTF8(String msg) {
