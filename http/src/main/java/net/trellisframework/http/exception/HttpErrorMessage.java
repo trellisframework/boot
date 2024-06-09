@@ -11,10 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Data
 @NoArgsConstructor
@@ -44,6 +41,7 @@ public class HttpErrorMessage implements Payload {
     }
 
     public HttpErrorMessage(HttpStatus httpStatus, String message, Integer status, String path, Date timestamp) {
+        message = Optional.ofNullable(message).orElse(StringUtils.EMPTY);
         List<String> messages = Arrays.asList(message.split(" "));
         String originalMessage = messages.stream().findFirst().orElse(StringUtils.EMPTY);
         String[] parameters = messages.size() < 2 ? new String[0] : messages.subList(1, messages.size()).toArray(new String[messages.size() - 1]);
