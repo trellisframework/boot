@@ -18,7 +18,7 @@ public class RandomLoadBalancer<T> extends LoadBalancer<T> {
     }
 
     @Override
-    public T getNextValue() {
-        return values.get(new Random().nextInt(values.size()));
+    public T next() {
+        return content.get(new Random().nextInt(content.size()));
     }
 }

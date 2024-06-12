@@ -1,13 +1,17 @@
 package net.trellisframework.util.loadbalance;
 
+import org.apache.commons.lang3.ObjectUtils;
+
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RoundRobinLoadBalancer<T> extends LoadBalancer<T> {
 
-    int index = 0;
+    private final AtomicInteger index;
 
-    public RoundRobinLoadBalancer(List<T> values) {
-        super(values);
+    public RoundRobinLoadBalancer(List<T> content) {
+        super(content);
+        this.index = new AtomicInteger(0);
     }
 
     public static <T> RoundRobinLoadBalancer<T> of(List<T> values) {
@@ -19,13 +23,11 @@ public class RoundRobinLoadBalancer<T> extends LoadBalancer<T> {
     }
 
     @Override
-    public T getNextValue() {
-        synchronized ("RoundRobinLoadBalancer") {
-            T value = values.get(index);
-            index++;
-            if (index == values.size())
-                index = 0;
-            return value;
+    public T next() {
+        if (ObjectUtils.isEmpty(content)) {
+            return null;
         }
+        int currentIndex = index.getAndUpdate(i -> (i + 1) % content.size());
+        return content.get(currentIndex);
     }
 }
