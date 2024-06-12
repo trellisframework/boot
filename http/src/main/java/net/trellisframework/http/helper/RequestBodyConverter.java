@@ -15,6 +15,6 @@ public final class RequestBodyConverter<T> implements Converter<T, RequestBody> 
 
     @Override
     public RequestBody convert(T value) {
-        return RequestBody.create(mediaType, String.valueOf(value));
+        return RequestBody.create(mediaType, HttpHelper.toJson(value));
     }
 }

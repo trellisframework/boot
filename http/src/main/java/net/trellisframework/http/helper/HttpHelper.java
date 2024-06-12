@@ -189,4 +189,13 @@ public class HttpHelper {
         }
     }
 
+    static <T> String toJson(T value) {
+        try {
+            return getMapper().writeValueAsString(value);
+        } catch (IOException e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return value.toString();
+        }
+    }
+
 }
