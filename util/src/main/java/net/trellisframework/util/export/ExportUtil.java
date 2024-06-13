@@ -9,7 +9,9 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.openxml4j.util.ZipInputStreamZipEntrySource;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.util.IOUtils;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
@@ -161,6 +163,8 @@ public class ExportUtil {
         try {
             if (list == null || list.isEmpty())
                 return null;
+            IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
+            ZipInputStreamZipEntrySource.setThresholdBytesForTempFiles(Integer.MAX_VALUE);
             List<String> columnList = getColumnName(list);
             if (ObjectUtils.isEmpty(columnList))
                 return null;
