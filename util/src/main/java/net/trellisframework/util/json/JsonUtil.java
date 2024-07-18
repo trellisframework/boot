@@ -1,18 +1,18 @@
 package net.trellisframework.util.json;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.core.message.Messages;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import net.trellisframework.http.exception.NotAcceptableException;
 import net.trellisframework.http.exception.NotFoundException;
-import net.trellisframework.util.mapper.ModelMapper;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collection;
 
 
 public class JsonUtil {
@@ -44,6 +44,15 @@ public class JsonUtil {
         }
     }
 
+    public static <T> Collection<T> toObject(String value, Class<? extends Collection> collectionClass, Class<T> valueType) {
+        try {
+            return getMapper().readValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, valueType));
+        } catch (IOException e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
     public static <T> T toObject(Object value, Class<T> valueType) {
         try {
             return getMapper().convertValue(value, valueType);
@@ -65,6 +74,16 @@ public class JsonUtil {
     public static <T> T toObject(String value, JavaType javaType) {
         try {
             return getMapper().readValue(value, javaType);
+        } catch (IOException e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
+
+    public static <T> Collection<T> toObject(String value, Class<? extends Collection> collectionClass, JavaType javaType) {
+        try {
+            return getMapper().readValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, javaType));
         } catch (IOException e) {
             Logger.error("JsonParseException", e.getMessage());
             return null;
