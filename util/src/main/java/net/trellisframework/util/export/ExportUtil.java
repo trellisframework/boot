@@ -16,10 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class ExportUtil {
     private static final String EXCEL_EXTENSION = ".xlsx";
@@ -123,14 +120,13 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + EXCEL_EXTENSION)), RESULT_SHEET_NAME, list, append), RESULT_SHEET_NAME, CSVFormat.DEFAULT);
+            return ExportUtil.export(file, list, ",", append);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
             return ExportUtil.fromExcel(file, excel, sheetName, CSVFormat.DEFAULT);
         }
     }
-
 
     public static class TSV {
         public static File export(String path, List<?> list) {
@@ -150,7 +146,7 @@ public class ExportUtil {
         }
 
         public static File export(File file, List<?> list, boolean append) {
-            return fromWorkbook(file, getWorkbook(new File(FilenameUtils.concat(file.getParent(), FilenameUtils.removeExtension(file.getName()) + EXCEL_EXTENSION)), RESULT_SHEET_NAME, list, append), RESULT_SHEET_NAME, CSVFormat.TDF);
+            return ExportUtil.export(file, list, "\t", append);
         }
 
         public static File fromExcel(File file, File excel, String sheetName) {
@@ -272,6 +268,50 @@ public class ExportUtil {
             }
         }
         return result;
+    }
+
+    public static File export(File file, List<?> list, String delimiter, boolean append) {
+        File dir = new File(file.getParent());
+        if (!(dir.exists() || dir.mkdirs()))
+            return null;
+
+        try (CSVPrinter printer = new CSVPrinter(new FileWriter(file, append), CSVFormat.EXCEL.builder().setDelimiter(delimiter).setQuote('"').setRecordSeparator("\r\n").setIgnoreEmptyLines(false).setAllowMissingColumnNames(true).build())) {
+            if (ObjectUtils.isNotEmpty(list)) {
+                IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
+                ZipInputStreamZipEntrySource.setThresholdBytesForTempFiles(Integer.MAX_VALUE);
+                Object first = list.get(0);
+                if (first instanceof Map<?, ?> map) {
+                    for (Object key : map.keySet()) {
+                        printer.print(key);
+                    }
+                    printer.println();
+                    for (Object element : list) {
+                        Map<?, ?> mapElement = (Map<?, ?>) element;
+                        for (Object key : map.keySet()) {
+                            printer.print(mapElement.get(key));
+                        }
+                        printer.println();
+                    }
+                } else {
+                    Field[] fields = first.getClass().getDeclaredFields();
+                    for (Field field : fields) {
+                        printer.print(field.getName());
+                    }
+                    printer.println();
+                    for (Object element : list) {
+                        for (Field field : fields) {
+                            field.setAccessible(true);
+                            printer.print(field.get(element));
+                        }
+                        printer.println();
+                    }
+                }
+            }
+            return file;
+        } catch (IllegalAccessException | IOException e) {
+            Logger.error("ExportException", e.getMessage(), e);
+            throw new InternalServerException(e.getMessage());
+        }
     }
 
 }
