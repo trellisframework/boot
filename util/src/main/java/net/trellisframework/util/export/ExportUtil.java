@@ -6,6 +6,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -272,33 +273,40 @@ public class ExportUtil {
 
     public static File export(File file, List<?> list, String delimiter, boolean append) {
         File dir = new File(file.getParent());
-        if (!(dir.exists() || dir.mkdirs()))
+        if (!(dir.exists() || dir.mkdirs())) {
             return null;
+        }
 
-        try (CSVPrinter printer = new CSVPrinter(new FileWriter(file, append), CSVFormat.EXCEL.builder().setDelimiter(delimiter).setQuote('"').setRecordSeparator("\r\n").setIgnoreEmptyLines(false).setAllowMissingColumnNames(true).build())) {
+        try (CSVPrinter printer = new CSVPrinter(new FileWriter(file, append), CSVFormat.EXCEL.builder()
+                .setDelimiter(delimiter)
+                .setQuote('"')
+                .setRecordSeparator("\r\n")
+                .setIgnoreEmptyLines(false)
+                .setAllowMissingColumnNames(true)
+                .build())) {
+
+            boolean shouldPrintHeader = !append || FileUtils.sizeOf(file) == 0;
+
             if (ObjectUtils.isNotEmpty(list)) {
                 IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
                 ZipInputStreamZipEntrySource.setThresholdBytesForTempFiles(Integer.MAX_VALUE);
                 Object first = list.get(0);
-                if (first instanceof Map<?, ?> map) {
+
+                if (first instanceof Map<?, ?> map && shouldPrintHeader) {
                     for (Object key : map.keySet()) {
                         printer.print(key);
                     }
                     printer.println();
-                    for (Object element : list) {
-                        Map<?, ?> mapElement = (Map<?, ?>) element;
-                        for (Object key : map.keySet()) {
+                }
+
+                for (Object element : list) {
+                    if (element instanceof Map<?, ?> mapElement) {
+                        for (Object key : mapElement.keySet()) {
                             printer.print(mapElement.get(key));
                         }
                         printer.println();
-                    }
-                } else {
-                    Field[] fields = first.getClass().getDeclaredFields();
-                    for (Field field : fields) {
-                        printer.print(field.getName());
-                    }
-                    printer.println();
-                    for (Object element : list) {
+                    } else {
+                        Field[] fields = element.getClass().getDeclaredFields();
                         for (Field field : fields) {
                             field.setAccessible(true);
                             printer.print(field.get(element));
