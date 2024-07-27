@@ -288,8 +288,6 @@ public class ExportUtil {
             boolean shouldPrintHeader = !append || FileUtils.sizeOf(file) == 0;
 
             if (ObjectUtils.isNotEmpty(list)) {
-                IOUtils.setByteArrayMaxOverride(Integer.MAX_VALUE);
-                ZipInputStreamZipEntrySource.setThresholdBytesForTempFiles(Integer.MAX_VALUE);
                 Object first = list.get(0);
 
                 if (first instanceof Map<?, ?> map && shouldPrintHeader) {
