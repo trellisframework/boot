@@ -23,7 +23,6 @@ public class ExportUtil {
     private static final String EXCEL_EXTENSION = ".xlsx";
     private static final String CSV_EXTENSION = ".csv";
     private static final String TSV_EXTENSION = ".tsv";
-    private static final String RESULT_SHEET_NAME = "Result";
 
     public static class Excel {
         public static File export(String path, List<?> list) {

@@ -6,7 +6,6 @@ import io.grpc.stub.StreamObserver;
 import net.trellisframework.context.action.*;
 import net.trellisframework.context.provider.InjectorBeanProvider;
 import net.trellisframework.http.exception.HttpException;
-import org.checkerframework.checker.units.qual.A;
 
 public interface GrpcActionContextProvider extends InjectorBeanProvider {
 

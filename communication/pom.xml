@@ -12,6 +12,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>grpc</module>
+        <module>communication-core</module>
     </modules>
     <dependencies>
         <dependency>

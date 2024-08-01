@@ -1,11 +1,6 @@
 package net.trellisframework.communication.grpc.client.factory;
 
 import lombok.Data;
-import net.trellisframework.core.application.ApplicationContextProvider;
-import net.trellisframework.core.message.Messages;
-import net.trellisframework.http.exception.ServiceUnavailableException;
-import org.springframework.cloud.client.ServiceInstance;
-import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
@@ -28,15 +23,12 @@ public class GrpcFactory {
         return new GrpcFactory(host, port, timeout, service);
     }
 
-    public static GrpcFactory getInstance(String serviceId, Class<?> service) {
-        return getInstance(serviceId, 60, service);
+    public static GrpcFactory getInstance(String host, Integer port, Class<?> service) {
+        return new GrpcFactory(host, port, 60, service);
     }
 
-    public static GrpcFactory getInstance(String serviceId, Integer timeout, Class<?> service) {
-        ServiceInstance instance = ApplicationContextProvider.context.getBean(LoadBalancerClient.class).choose(serviceId);
-        if (instance == null)
-            throw new ServiceUnavailableException(Messages.SERVICE_UNAVAILABLE);
-        return new GrpcFactory(instance.getHost(), Integer.parseInt(instance.getMetadata().getOrDefault("grpc-port", "6565")), timeout, service);
+    public static GrpcFactory getInstance(String host, Class<?> service) {
+        return new GrpcFactory(host, 80, 60, service);
     }
 
     public <T> T create(Class<T> serviceClass) {
