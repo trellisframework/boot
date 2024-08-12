@@ -43,12 +43,16 @@ public class AwsS3Client {
     }
 
     public static String upload(String bucket, String key, File file, boolean override) {
+        return upload(bucket, key, file, override, CannedAccessControlList.Private);
+    }
+
+    public static String upload(String bucket, String key, File file, boolean override, CannedAccessControlList cannedAcl) {
         Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
         AmazonS3 client = getClient(properties);
         if (!override && client.doesObjectExist(properties.getKey(), key)) {
             throw new ConflictException(Messages.FILE_ALREADY_EXIST);
         } else {
-            client.putObject(new PutObjectRequest(bucket, key, file));
+            client.putObject(new PutObjectRequest(bucket, key, file).withCannedAcl(cannedAcl));
             return key;
         }
     }
