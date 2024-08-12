@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,5 +21,9 @@ public class MultiTenancyProperties {
 
     public Optional<OAuth2ResourceServerProperties.Jwt> findByTenantId(String tenantId) {
         return Optional.ofNullable(issuers).map(x -> x.get(tenantId));
+    }
+
+    public Map.Entry<String, OAuth2ResourceServerProperties.Jwt> getFirst() {
+        return Optional.ofNullable(issuers).map(Map::entrySet).orElse(new HashSet<>()).stream().findFirst().orElse(null);
     }
 }

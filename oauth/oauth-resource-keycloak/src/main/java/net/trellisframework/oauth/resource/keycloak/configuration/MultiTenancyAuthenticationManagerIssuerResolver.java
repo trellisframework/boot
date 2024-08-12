@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.server.resource.InvalidBearerTokenExc
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
 import org.springframework.util.ObjectUtils;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -37,8 +38,18 @@ public class MultiTenancyAuthenticationManagerIssuerResolver implements Authenti
     @Override
     public AuthenticationManager resolve(HttpServletRequest context) {
         String tenantId = issuerConverter.convert(context);
-        if (StringUtils.isBlank(tenantId))
-            throw new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage());
+        if (StringUtils.isBlank(tenantId)) {
+            Map.Entry<String, OAuth2ResourceServerProperties.Jwt> entry = properties.getFirst();
+            if (entry == null || entry.getValue() == null) {
+                throw new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage());
+            }
+            AuthenticationManager manager = managers.get(entry.getKey());
+            if (manager == null) {
+                manager = provider(entry.getValue())::authenticate;
+                managers.put(entry.getKey(), manager);
+            }
+            return manager;
+        }
         AuthenticationManager manager = managers.get(tenantId);
         if (manager == null) {
             OAuth2ResourceServerProperties.Jwt jwt = properties.isEnabled() ? properties.findByTenantId(tenantId).orElse(null) : null;
@@ -65,7 +76,7 @@ public class MultiTenancyAuthenticationManagerIssuerResolver implements Authenti
         @Override
         public String convert(@NonNull HttpServletRequest context) {
             try {
-                return Optional.ofNullable(context.getHeader(Optional.ofNullable(properties.getHeaderName()).orElse("X-Tenant-ID"))).orElseThrow(() -> new InvalidBearerTokenException(Messages.UNKNOWN_ISSUER.getMessage()));
+                return context.getHeader(Optional.ofNullable(properties.getHeaderName()).orElse("X-Tenant-ID"));
             } catch (Exception ex) {
                 throw new InvalidBearerTokenException(ex.getMessage(), ex);
             }
