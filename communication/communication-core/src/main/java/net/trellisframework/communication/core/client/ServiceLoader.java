@@ -18,7 +18,7 @@ public class ServiceLoader {
         return client;
     }
 
-    public ServiceInstance load(String serviceId) {
+    public static ServiceInstance load(String serviceId) {
         ServiceInstance instance = Optional.ofNullable(getClient()).map(x -> x.choose(serviceId)).orElse(null);
         if (instance == null)
             throw new ServiceUnavailableException(Messages.SERVICE_UNAVAILABLE);

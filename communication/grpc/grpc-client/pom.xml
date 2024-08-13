@@ -21,5 +21,10 @@
             <artifactId>grpc-stub</artifactId>
             <version>${grpc.version}</version>
         </dependency>
+        <dependency>
+            <groupId>net.trellisframework.boot</groupId>
+            <artifactId>communication-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 </project>
