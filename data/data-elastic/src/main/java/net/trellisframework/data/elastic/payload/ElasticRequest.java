@@ -1,5 +1,6 @@
 package net.trellisframework.data.elastic.payload;
 
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.search.TrackHits;
 import co.elastic.clients.util.ObjectBuilder;
@@ -10,6 +11,7 @@ import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -19,6 +21,8 @@ public class ElasticRequest implements Payload {
     private List<String> index;
 
     private Function<Query.Builder, ObjectBuilder<Query>> filters;
+
+    private Map<String, Aggregation> aggregations;
 
     private List<String> sources;
 
