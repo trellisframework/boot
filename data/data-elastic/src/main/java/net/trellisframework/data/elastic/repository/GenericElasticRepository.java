@@ -105,6 +105,7 @@ public interface GenericElasticRepository<TEntity extends CoreDocument> extends 
             builder.index(ObjectUtil.defaultIfEmpty(request.getIndex(), List.of(index_name())));
             Optional.ofNullable(request.getFilters()).ifPresent(builder::query);
             Optional.ofNullable(ObjectUtil.nullIfEmpty(request.getSources())).ifPresent(x -> builder.source(s -> s.filter(f -> f.includes(x))));
+            Optional.ofNullable(request.getAggregations()).ifPresent(builder::aggregations);
             builder.trackTotalHits(request.getTrackHits());
             SearchResponse<TDocument> response = ElasticsearchConfig.getInstance().search(s -> builder, clazz);
             return plainToClass(response, pageable);
