@@ -1,7 +1,6 @@
 package net.trellisframework.communication.grpc.client.factory;
 
 import lombok.Data;
-import org.apache.poi.ss.formula.functions.T;
 import org.springframework.cloud.client.ServiceInstance;
 
 import java.lang.reflect.InvocationHandler;
