@@ -44,7 +44,17 @@ public class JsonUtil {
         }
     }
 
-    public static <T> Collection<T> toObject(String value, Class<? extends Collection> collectionClass, Class<T> valueType) {
+    public static <T, C extends Collection<T>> C toObject(Object value, Class<C> collectionClass, Class<T> valueType) {
+        try {
+            return getMapper().convertValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, valueType));
+        } catch (Exception e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
+
+    public static <T, C extends Collection<T>> C toObject(String value, Class<C> collectionClass, Class<T> valueType) {
         try {
             return getMapper().readValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, valueType));
         } catch (IOException e) {
@@ -56,6 +66,15 @@ public class JsonUtil {
     public static <T> T toObject(Object value, Class<T> valueType) {
         try {
             return getMapper().convertValue(value, valueType);
+        } catch (Exception e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
+    public static <T> T toObject(Object value, TypeReference<T> valueTypeRef) {
+        try {
+            return getMapper().convertValue(value, valueTypeRef);
         } catch (Exception e) {
             Logger.error("JsonParseException", e.getMessage());
             return null;
@@ -80,11 +99,19 @@ public class JsonUtil {
         }
     }
 
-
-    public static <T> Collection<T> toObject(String value, Class<? extends Collection> collectionClass, JavaType javaType) {
+    public static <T, C extends Collection<T>> C toObject(String value, Class<C> collectionClass, JavaType javaType) {
         try {
             return getMapper().readValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, javaType));
         } catch (IOException e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
+    public static <T, C extends Collection<T>> C toObject(Object value, Class<C> collectionClass, JavaType javaType) {
+        try {
+            return getMapper().convertValue(value, getMapper().getTypeFactory().constructCollectionType(collectionClass, javaType));
+        } catch (Exception e) {
             Logger.error("JsonParseException", e.getMessage());
             return null;
         }
