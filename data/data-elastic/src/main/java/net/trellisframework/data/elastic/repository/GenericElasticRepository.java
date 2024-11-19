@@ -27,6 +27,7 @@ import java.lang.reflect.ParameterizedType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 
 @NoRepositoryBean
@@ -189,7 +190,7 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
 
     default <TDocument> TDocument save(TDocument entity) {
         try {
-            String id = ReflectionUtil.getPropertyValue(entity, "id");
+            String id = ReflectionUtil.getPropertyValue(entity, "id", UUID.randomUUID().toString());
             ElasticsearchConfig.getInstance().index(b -> b.index(index_name()).document(entity).id(id));
             return entity;
         } catch (Exception e) {
