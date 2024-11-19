@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.InlineGet;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
 import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResult;
 import co.elastic.clients.elasticsearch.core.search.*;
 import co.elastic.clients.elasticsearch.core.update.UpdateWriteResponseBase;
 import co.elastic.clients.util.ObjectBuilder;
@@ -147,6 +148,19 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
                 }
             }
             return hasJoin ? ElasticsearchConfig.getInstance().sirenSearch(s -> fn.apply(builder), clazz) : ElasticsearchConfig.getInstance().search(s -> fn.apply(builder), clazz);
+        } catch (IOException e) {
+            throw new ServiceUnavailableException(e.getMessage());
+        }
+    }
+
+    default <TDocument> MultiSearchResult<TDocument> msearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> clazz) {
+        return msearch(fn, clazz, false);
+    }
+
+    default <TDocument> MultiSearchResult<TDocument> msearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> clazz, Boolean hasJoin) {
+        try {
+            MsearchRequest.Builder builder = new MsearchRequest.Builder();
+            return hasJoin ? ElasticsearchConfig.getInstance().sirenMSearch(s -> fn.apply(builder), clazz) : ElasticsearchConfig.getInstance().msearch(s -> fn.apply(builder), clazz);
         } catch (IOException e) {
             throw new ServiceUnavailableException(e.getMessage());
         }

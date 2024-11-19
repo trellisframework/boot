@@ -1,7 +1,12 @@
 package net.trellisframework.data.elastic.configuration;
 
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.TransportOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationConfig;
+import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
+import com.fasterxml.jackson.datatype.jdk8.OptionalLongDeserializer;
 import lombok.SneakyThrows;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.elastic.constant.Messages;
@@ -55,7 +60,6 @@ public class ElasticsearchConfig {
                 .build();
         return new SirenElasticsearchClient(new RestClientTransport(restClient, new JacksonJsonpMapper()));
     }
-
 
     public static SirenElasticsearchClient getInstance() {
         if (client == null)
