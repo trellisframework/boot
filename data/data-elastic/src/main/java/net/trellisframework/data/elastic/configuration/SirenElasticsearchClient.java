@@ -33,11 +33,10 @@ import java.util.stream.Collectors;
 
 public class SirenElasticsearchClient extends ElasticsearchClient {
 
-    public static final SimpleEndpoint<SearchRequest, ?> _SEARCH_ENDPOINT = new SimpleEndpoint<>("es/search",
-            request -> "POST",
+    public static final SimpleEndpoint<SearchRequest, ?> _SEARCH_ENDPOINT = new SimpleEndpoint<>("es/search", request -> "POST",
 
             request -> {
-                final int _index = 1 << 0;
+                final int _index = 1;
 
                 int propsSet = 0;
 
@@ -46,27 +45,22 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 if (propsSet == 0) {
                     return "/_search";
                 }
-                if (propsSet == (_index)) {
-                    StringBuilder buf = new StringBuilder();
-                    buf.append("/siren/");
-                    SimpleEndpoint.pathEncode(String.join(",", request.index()), buf);
-                    buf.append("/_search");
-                    return buf.toString();
-                }
-                throw SimpleEndpoint.noPathTemplateFound("path");
+                StringBuilder buf = new StringBuilder();
+                buf.append("/siren/");
+                SimpleEndpoint.pathEncode(String.join(",", request.index()), buf);
+                buf.append("/_search");
+                return buf.toString();
 
             },
 
             request -> {
                 Map<String, String> params = new HashMap<>();
-                final int _index = 1 << 0;
+                final int _index = 1;
 
                 int propsSet = 0;
 
                 if (ApiTypeHelper.isDefined(request.index())) propsSet |= _index;
 
-                if (propsSet == 0) {
-                }
                 if (propsSet == (_index)) {
                     params.put("index", String.join(",", request.index()));
                 }
@@ -113,7 +107,7 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                     params.put("allow_partial_search_results", String.valueOf(request.allowPartialSearchResults()));
                 }
                 if (ApiTypeHelper.isDefined(request.expandWildcards())) {
-                    params.put("expand_wildcards", request.expandWildcards().stream().map(v -> v.jsonValue()).collect(Collectors.joining(",")));
+                    params.put("expand_wildcards", request.expandWildcards().stream().map(ExpandWildcard::jsonValue).collect(Collectors.joining(",")));
                 }
                 if (request.preference() != null) {
                     params.put("preference", request.preference());
@@ -147,58 +141,42 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
             }, SimpleEndpoint.emptyMap(), true, SearchResponse._DESERIALIZER);
 
 
-    public static final SimpleEndpoint<MsearchRequest, ?> _MSEARCH_ENDPOINT = new SimpleEndpoint<>("es/msearch",
+    public static final SimpleEndpoint<MsearchRequest, ?> _M_SEARCH_ENDPOINT = new SimpleEndpoint<>("es/msearch",
 
-            // Request method
+            request -> "POST",
+
             request -> {
-                return "POST";
-
-            },
-
-            // Request path
-            request -> {
-                final int _index = 1 << 0;
+                final int _index = 1;
 
                 int propsSet = 0;
 
-                if (ApiTypeHelper.isDefined(request.index()))
-                    propsSet |= _index;
+                if (ApiTypeHelper.isDefined(request.index())) propsSet |= _index;
 
                 if (propsSet == 0) {
-                    StringBuilder buf = new StringBuilder();
-                    buf.append("/siren/_msearch");
-                    return buf.toString();
+                    return "/siren/_msearch";
                 }
-                if (propsSet == (_index)) {
-                    StringBuilder buf = new StringBuilder();
-                    buf.append("/siren/");
-                    SimpleEndpoint.pathEncode(String.join(",", request.index()), buf);
-                    buf.append("/_msearch");
-                    return buf.toString();
-                }
-                throw SimpleEndpoint.noPathTemplateFound("path");
+                StringBuilder buf = new StringBuilder();
+                buf.append("/siren/");
+                SimpleEndpoint.pathEncode(String.join(",", request.index()), buf);
+                buf.append("/_msearch");
+                return buf.toString();
 
             },
 
-            // Path parameters
             request -> {
                 Map<String, String> params = new HashMap<>();
-                final int _index = 1 << 0;
+                final int _index = 1;
 
                 int propsSet = 0;
 
-                if (ApiTypeHelper.isDefined(request.index()))
-                    propsSet |= _index;
+                if (ApiTypeHelper.isDefined(request.index())) propsSet |= _index;
 
-                if (propsSet == 0) {
-                }
                 if (propsSet == (_index)) {
-                    params.put("index", request.index().stream().map(v -> v).collect(Collectors.joining(",")));
+                    params.put("index", String.join(",", request.index()));
                 }
                 return params;
             },
 
-            // Request parameters
             request -> {
                 Map<String, String> params = new HashMap<>();
                 params.put("typed_keys", "true");
@@ -212,8 +190,7 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                     params.put("max_concurrent_shard_requests", String.valueOf(request.maxConcurrentShardRequests()));
                 }
                 if (ApiTypeHelper.isDefined(request.expandWildcards())) {
-                    params.put("expand_wildcards",
-                            request.expandWildcards().stream().map(ExpandWildcard::jsonValue).collect(Collectors.joining(",")));
+                    params.put("expand_wildcards", request.expandWildcards().stream().map(ExpandWildcard::jsonValue).collect(Collectors.joining(",")));
                 }
                 if (request.ignoreUnavailable() != null) {
                     params.put("ignore_unavailable", String.valueOf(request.ignoreUnavailable()));
@@ -237,14 +214,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
 
             }, SimpleEndpoint.emptyMap(), true, SirenMsearchResponse._DESERIALIZER);
 
-    /**
-     * Create an "{@code msearch}" endpoint.
-     */
-    public static <TDocument> Endpoint<MsearchRequest, MsearchResponse<TDocument>, ErrorResponse> createMsearchEndpoint(
-            JsonpDeserializer<TDocument> tDocumentDeserializer) {
-        return _MSEARCH_ENDPOINT
-                .withResponseDeserializer(MsearchResponse.createMsearchResponseDeserializer(tDocumentDeserializer));
-    }
 
     public SirenElasticsearchClient(ElasticsearchTransport transport) {
         super(transport, null);
@@ -275,32 +244,23 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
     }
 
 
-    public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Class<TDocument> tDocumentClass)
-            throws IOException, ElasticsearchException {
-        @SuppressWarnings("unchecked")
-        JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _MSEARCH_ENDPOINT;
+    public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Class<TDocument> tDocumentClass) throws IOException, ElasticsearchException {
+        @SuppressWarnings("unchecked") JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _M_SEARCH_ENDPOINT;
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.TDocument", getDeserializer(tDocumentClass));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
-    public final <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(
-            Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> tDocumentClass)
-            throws IOException, ElasticsearchException {
+    public final <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> tDocumentClass) throws IOException, ElasticsearchException {
         return sirenMSearch(fn.apply(new MsearchRequest.Builder()).build(), tDocumentClass);
     }
 
-    public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Type tDocumentType)
-            throws IOException, ElasticsearchException {
-        @SuppressWarnings("unchecked")
-        JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _MSEARCH_ENDPOINT;
+    public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Type tDocumentType) throws IOException, ElasticsearchException {
+        @SuppressWarnings("unchecked") JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _M_SEARCH_ENDPOINT;
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.TDocument", getDeserializer(tDocumentType));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
-    // TODO sayad
-    public final <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(
-            Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Type tDocumentType)
-            throws IOException, ElasticsearchException {
+    public final <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Type tDocumentType) throws IOException, ElasticsearchException {
         return sirenMSearch(fn.apply(new MsearchRequest.Builder()).build(), tDocumentType);
     }
 
