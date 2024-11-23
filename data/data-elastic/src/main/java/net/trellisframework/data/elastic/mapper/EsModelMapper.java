@@ -1,6 +1,7 @@
 package net.trellisframework.data.elastic.mapper;
 
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResponseItem;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.core.search.ResponseBody;
@@ -28,5 +29,15 @@ public interface EsModelMapper extends PagingModelMapper {
         return new PageImpl<>(plainToClass(data),
                 pageable,
                 Optional.ofNullable(data).map(ResponseBody::hits).map(HitsMetadata::total).map(TotalHits::value).orElse(0L));
+    }
+
+    default <T> List<T> plainToClass(MultiSearchResponseItem<T> data) {
+        return Optional.ofNullable(data).map(MultiSearchResponseItem::result).map(ResponseBody::hits).map(HitsMetadata::hits).orElse(new ArrayList<>()).stream().map(this::plainToClass).toList();
+    }
+
+    default <T> Page<T> plainToClass(MultiSearchResponseItem<T> data, Pageable pageable) {
+        return new PageImpl<>(plainToClass(data),
+                pageable,
+                Optional.ofNullable(data).map(MultiSearchResponseItem::result).map(ResponseBody::hits).map(HitsMetadata::total).map(TotalHits::value).orElse(0L));
     }
 }
