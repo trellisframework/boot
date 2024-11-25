@@ -110,7 +110,7 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
     }
 
     default <TDocument> Optional<TDocument> findById(String id, Class<TDocument> clazz) {
-        return findAll(s -> s.query(q -> q.ids(i -> i.values(id))), DefaultPageRequest.of(0, 1), clazz).stream().findFirst();
+        return findAll(s -> s.index(index_name()).query(q -> q.ids(i -> i.values(id))), DefaultPageRequest.of(0, 1), clazz).stream().findFirst();
     }
 
     default Map<String, Aggregate> aggregations(Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn) {
