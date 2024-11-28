@@ -11,6 +11,8 @@
     <artifactId>cache</artifactId>
     <packaging>pom</packaging>
     <modules>
+        <module>cache-core</module>
+        <module>cache-caffeine</module>
         <module>cache-redis</module>
     </modules>
     <dependencies>
