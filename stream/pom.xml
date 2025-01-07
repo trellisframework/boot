@@ -9,30 +9,15 @@
         <version>0.0.0</version>
     </parent>
     <artifactId>stream</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
+    <modules>
+        <module>stream-core</module>
+        <module>stream-rabbit</module>
+        <module>stream-kafka</module>
+    </modules>
     <properties>
         <spring.cloud.version>2021.0.5</spring.cloud.version>
     </properties>
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-amqp</artifactId>
-            <version>${spring.boot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-stream</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-stream-rabbit</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>net.trellisframework.boot</groupId>
-            <artifactId>context</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-    </dependencies>
     <dependencyManagement>
         <dependencies>
             <dependency>

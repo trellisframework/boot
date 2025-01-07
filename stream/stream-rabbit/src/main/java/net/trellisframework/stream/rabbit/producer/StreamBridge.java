@@ -1,4 +1,4 @@
-package net.trellisframework.stream.producer;
+package net.trellisframework.stream.rabbit.producer;
 
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.util.json.JsonUtil;
