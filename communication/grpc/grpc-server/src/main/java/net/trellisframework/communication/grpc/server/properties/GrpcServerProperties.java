@@ -1,6 +1,5 @@
 package net.trellisframework.communication.grpc.server.properties;
 
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.beans.factory.InitializingBean;
@@ -43,7 +42,7 @@ public class GrpcServerProperties implements InitializingBean {
     }
 
     @Override
-    public void afterPropertiesSet() throws Exception {
+    public void afterPropertiesSet() {
         Optional.ofNullable(nettyServer)
                 .map(NettyServerProperties::getPrimaryListenAddress)
                 .ifPresent(a -> port = a.getPort());
