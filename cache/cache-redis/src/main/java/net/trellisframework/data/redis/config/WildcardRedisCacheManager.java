@@ -1,6 +1,7 @@
 package net.trellisframework.data.redis.config;
 
 import lombok.Getter;
+import lombok.NonNull;
 import org.springframework.data.redis.cache.RedisCache;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
@@ -20,7 +21,7 @@ public class WildcardRedisCacheManager extends RedisCacheManager {
     }
 
     @Override
-    protected RedisCache createRedisCache(String name, RedisCacheConfiguration cacheConfig) {
+    protected RedisCache createRedisCache(@NonNull String name, RedisCacheConfiguration cacheConfig) {
         return new WildcardRedisCache(name, getCacheWriter(), cacheConfig);
     }
 
@@ -31,7 +32,7 @@ public class WildcardRedisCacheManager extends RedisCacheManager {
         }
 
         @Override
-        public void evict(Object key) {
+        public void evict(@NonNull Object key) {
             if (key instanceof String v && v.contains("*")) {
                 byte[] pattern = (getCacheConfiguration().getKeyPrefixFor(getName()) + v).getBytes(StandardCharsets.UTF_8);
                 getCacheWriter().clean(getName(), pattern);

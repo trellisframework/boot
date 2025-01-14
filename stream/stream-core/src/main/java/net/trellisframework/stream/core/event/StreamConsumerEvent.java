@@ -7,10 +7,4 @@ import java.util.function.Consumer;
 
 public interface StreamConsumerEvent<I> extends Consumer<I>, ModelMapper, ActionContextProvider {
 
-    void execute(I request);
-
-    @Override
-    default void accept(I i) {
-        execute(i);
-    }
 }

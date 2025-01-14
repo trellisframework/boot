@@ -9,6 +9,9 @@
     </parent>
     <artifactId>communication-core</artifactId>
     <packaging>jar</packaging>
+    <properties>
+        <spring.cloud.commons.version>4.2.0</spring.cloud.commons.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>net.trellisframework.boot</groupId>
@@ -18,7 +21,7 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-commons</artifactId>
-            <version>${spring.boot.version}</version>
+            <version>${spring.cloud.commons.version}</version>
         </dependency>
     </dependencies>
 

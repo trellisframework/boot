@@ -9,8 +9,8 @@
         <version>0.0.0</version>
     </parent>
     <properties>
-        <grpc.version>1.59.0</grpc.version>
-        <google.guava.version>32.1.3-jre</google.guava.version>
+        <grpc.version>1.69.0</grpc.version>
+        <google.guava.version>33.4.0-jre</google.guava.version>
     </properties>
     <artifactId>grpc</artifactId>
     <packaging>pom</packaging>
