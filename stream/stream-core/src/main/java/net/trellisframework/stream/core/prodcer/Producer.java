@@ -3,7 +3,7 @@ package net.trellisframework.stream.core.prodcer;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.stream.core.payload.ProducerMessage;
 
-public class StreamBridge {
+public class Producer {
 
     static MessageProducer producer;
 
