@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.core.message.Messages;
+import net.trellisframework.http.exception.BadRequestException;
 import net.trellisframework.http.exception.NotAcceptableException;
 import net.trellisframework.http.exception.NotFoundException;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -17,15 +18,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
 
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
-
 
 public class JsonUtil {
     static ObjectMapper mapper;
 
     public static ObjectMapper getMapper(Jackson2ObjectMapperBuilder builder) {
         return builder
-                .serializationInclusion(NON_NULL)
                 .failOnEmptyBeans(false)
                 .failOnUnknownProperties(false)
                 .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
@@ -93,6 +91,18 @@ public class JsonUtil {
 
     public static <T> T toObject(Object value, Class<T> valueType) {
         return toObject(getMapper(), value, valueType);
+    }
+
+    public static <I, O> O toObject(I source, O destination) {
+        return toObject(getMapper(), source, destination);
+    }
+
+    public static <I, O> O toObject(ObjectMapper mapper, I source, O destination) {
+        try {
+            return mapper.readerForUpdating(destination).readValue(mapper.writeValueAsString(source));
+        } catch (Exception e) {
+            throw new BadRequestException(net.trellisframework.util.constant.Messages.CAN_NOT_DESERIALIZE_OBJECT);
+        }
     }
 
     public static <T> T toObject(ObjectMapper mapper, Object value, Class<T> valueType) {
