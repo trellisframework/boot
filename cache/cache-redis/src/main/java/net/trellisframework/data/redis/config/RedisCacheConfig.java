@@ -4,9 +4,14 @@ import net.trellisframework.boot.cache.core.constant.CacheManagers;
 import net.trellisframework.boot.cache.core.payload.TTL;
 import net.trellisframework.boot.cache.core.scanner.AnnotationScanner;
 import net.trellisframework.core.application.ApplicationContextProvider;
+import org.apache.commons.lang3.StringUtils;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.cache.CacheProperties;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -54,5 +59,15 @@ public class RedisCacheConfig {
         WildcardRedisCacheManager cacheManager = new WildcardRedisCacheManager(RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory), defaultConfiguration, initialCacheConfigurations);
         cacheManager.setTransactionAware(true);
         return cacheManager;
+    }
+
+    @Bean
+    public RedissonClient redissonClient(RedisProperties properties) {
+        Config config = new Config();
+        config.useSingleServer()
+                .setAddress(StringUtils.defaultIfBlank(properties.getUrl(), "redis://" + properties.getHost() + ":" + properties.getPort()))
+                .setUsername(properties.getUsername())
+                .setPassword(properties.getPassword());
+        return Redisson.create(config);
     }
 }
