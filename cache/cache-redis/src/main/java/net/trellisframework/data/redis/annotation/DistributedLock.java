@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Reflective
-public @interface Lock {
+public @interface DistributedLock {
     String value() default "";
     String key() default "";
     long waitTime() default 60;
