@@ -4,13 +4,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import net.trellisframework.core.log.Logger;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Converter;
 import retrofit2.Retrofit;
 
-import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 

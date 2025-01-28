@@ -1,47 +1,61 @@
 package net.trellisframework.core.log;
 
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.spi.StandardLevel;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StopWatch;
-import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Method;
-import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Aspect
 @Component
 public class LogAspect {
 
-    @Around("@within(Log) || @annotation(Log)")
+    @Around("@within(net.trellisframework.core.log.Log) || @annotation(net.trellisframework.core.log.Log)")
     public Object executionTime(ProceedingJoinPoint point) throws Throwable {
-        MethodSignature signature = (MethodSignature) point.getSignature();
-        Method method = signature.getMethod();
-        Log annotation = method.getAnnotation(Log.class);
-        if (annotation == null) {
-            method = point.getTarget().getClass().getMethod(method.getName(), method.getParameterTypes());
-            annotation = method.getAnnotation(Log.class);
-        }
-        boolean input = Optional.ofNullable(annotation).map(Log::input).orElse(true);
-        boolean output = Optional.ofNullable(annotation).map(Log::output).orElse(true);
+        Method method = ((MethodSignature) point.getSignature()).getMethod();
+        Log annotation = Optional.ofNullable(method.getAnnotation(Log.class)).orElse(point.getTarget().getClass().getMethod(method.getName(), method.getParameterTypes()).getAnnotation(Log.class));
+        List<Log.Option> options = Optional.ofNullable(annotation.options()).map(List::of).orElse(new ArrayList<>());
+        if (ObjectUtils.isEmpty(options))
+            return point.proceed();
+
+        boolean input = options.stream().anyMatch(x -> Log.Option.ALL.equals(x) || Log.Option.INPUT.equals(x));
+        boolean output = options.stream().anyMatch(x -> Log.Option.ALL.equals(x) || Log.Option.OUTPUT.equals(x));
+        boolean executionTime = options.stream().anyMatch(x -> Log.Option.ALL.equals(x) || Log.Option.EXECUTION_TIME.equals(x));
+        boolean correlationId = options.stream().anyMatch(x -> Log.Option.ALL.equals(x) || Log.Option.CORRELATION_ID.equals(x));
+        StandardLevel level = Optional.ofNullable(annotation.level()).orElse(StandardLevel.INFO);
+        Log.When when = Optional.ofNullable(annotation.when()).orElse(Log.When.ALL);
+        String traceId = RandomStringUtils.randomAlphanumeric(8);
         StopWatch stopWatch = new StopWatch();
-        String traceId = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 6);
+        String correlationIdText = correlationId ? " CorrelationID= " + traceId : StringUtils.EMPTY;
+        String inputText = input ? " Args= " + Arrays.toString(point.getArgs()) : StringUtils.EMPTY;
+        String outputText = StringUtils.EMPTY;
+        String identifier = StringUtils.defaultIfBlank(annotation.value(), StringUtils.EMPTY);
         try {
-            System.out.println(MessageFormat.format("Enter: TraceID: {0} Method: {1}.{2}())" + (input ? " -> Argument[s] = {3}" : ""), traceId, point.getSignature().getDeclaringTypeName(), point.getSignature().getName(), Arrays.toString(point.getArgs())));
+            if (Log.When.STARTED.equals(when) || Log.When.ALL.equals(when))
+                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Started" + correlationIdText + inputText, null);
             stopWatch.start();
             Object result = point.proceed();
-            stopWatch.stop();
-            System.out.println(MessageFormat.format("Exit: TraceID: {0} Time: {1}ms Method: {2}.{3}()" + (output ? " -> result = {4}" : ""), traceId, stopWatch.getTotalTimeMillis(), point.getSignature().getDeclaringTypeName(), point.getSignature().getName(), result));
+            outputText = output ? " Result= " + result : StringUtils.EMPTY;
             return result;
         } catch (Exception e) {
-            stopWatch.stop();
-            System.out.println(MessageFormat.format("TraceID: {0} Time: {1}ms Exit: {2}.{3}()" + (output ? " -> Error = {4}" : ""), traceId, stopWatch.getTotalTimeMillis(), point.getSignature().getDeclaringTypeName(), point.getSignature().getName(), e.getMessage()));
+            outputText = output ? " Exception= " + e.getMessage() : StringUtils.EMPTY;
             throw e;
+        } finally {
+            stopWatch.stop();
+            String executionTimeText = executionTime ? " Execution-Time= " + stopWatch.getTotalTimeMillis() + "ms" : StringUtils.EMPTY;
+            if (Log.When.FINISHED.equals(when) || Log.When.ALL.equals(when))
+                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Finished" + correlationIdText + executionTimeText + inputText + outputText, null);
         }
     }
 

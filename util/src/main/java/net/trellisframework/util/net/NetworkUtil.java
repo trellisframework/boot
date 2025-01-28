@@ -12,7 +12,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.net.util.SubnetUtils;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
