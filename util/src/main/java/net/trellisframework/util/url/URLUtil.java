@@ -1,8 +1,15 @@
 package net.trellisframework.util.url;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class URLUtil {
 
@@ -44,6 +51,18 @@ public class URLUtil {
 
     public static String getQuery(String url) {
         return url(url).map(URL::getQuery).orElse(null);
+    }
+
+    public static Map<String, String> getQueryMap(String url) {
+        if (!URLUtil.isValidURL(url) || StringUtils.isBlank(getQuery(url)))
+            return Map.of();
+        return Arrays.stream(getQuery(url).split("&"))
+                .map(x -> x.split("=", 2))
+                .collect(Collectors.toMap(
+                        x -> URLDecoder.decode(x[0], StandardCharsets.UTF_8),
+                        x -> x.length > 1 ? URLDecoder.decode(x[1], StandardCharsets.UTF_8) : "",
+                        (existing, replacement) -> replacement
+                ));
     }
 
     public static boolean isValidURL(String url) {
