@@ -4,6 +4,7 @@ import com.amazonaws.HttpMethod;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
@@ -11,6 +12,7 @@ import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.time.Instant;
@@ -87,10 +89,10 @@ public class AwsS3Client {
 
     private static AmazonS3 getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard()
-                .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey())));
+                .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).withPathStyleAccessEnabled(property.getValue().getPathStyle());
         Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
-                x -> builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(property.getValue().getRegion().getName() + "." + property.getValue().getEndpoint(), property.getValue().getRegion().getName())),
-                () -> builder.withRegion(property.getValue().getRegion())
+                x -> builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint(), Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).orElse(null))),
+                () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(builder::withRegion)
         );
         return builder.build();
     }
