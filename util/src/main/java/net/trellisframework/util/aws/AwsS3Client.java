@@ -89,7 +89,7 @@ public class AwsS3Client {
 
     private static AmazonS3 getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard()
-                .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).withPathStyleAccessEnabled(property.getValue().getPathStyle());
+                .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).withPathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false));
         Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
                 x -> builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint(), Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).orElse(null))),
                 () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(builder::withRegion)

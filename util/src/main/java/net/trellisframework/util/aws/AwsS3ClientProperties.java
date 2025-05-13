@@ -23,7 +23,7 @@ public class AwsS3ClientProperties {
         private String endpoint;
         private Regions region;
         private Credential credential;
-        private Boolean pathStyle = false;
+        private Boolean pathStyle;
     }
 
     @Data
