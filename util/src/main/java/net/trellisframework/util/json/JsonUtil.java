@@ -26,7 +26,7 @@ public class JsonUtil {
         return builder
                 .failOnEmptyBeans(false)
                 .failOnUnknownProperties(false)
-                .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                .featuresToEnable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
                 .build();
     }
 

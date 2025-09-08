@@ -14,7 +14,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <spring.boot.version>3.4.1</spring.boot.version>
         <spring.cloud.version>2024.0.0</spring.cloud.version>
-        <apache.version>3.13.0</apache.version>
+        <apache.version>3.18.0</apache.version>
         <log4j.version>2.19.0</log4j.version>
         <maven.compiler.plugin.version>3.10.0</maven.compiler.plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

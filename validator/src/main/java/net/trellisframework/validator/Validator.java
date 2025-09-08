@@ -4,9 +4,9 @@ import net.trellisframework.core.constant.Country;
 import net.trellisframework.util.phone.PhoneUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.validator.routines.IBANValidator;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -80,26 +80,7 @@ public class Validator {
     public static boolean isValidIBan(String s) {
         if (StringUtils.isEmpty(s))
             return false;
-        String trimmed = s.trim();
-        String country = trimmed.length() < 2 ? StringUtils.EMPTY : trimmed.substring(0, 2);
-        boolean hasCountry = StringUtils.isNotBlank(country) && StringUtils.isAlpha(country);
-        trimmed = hasCountry ? trimmed : "IR" + trimmed;
-        if (trimmed.length() < IBAN_MIN_SIZE || trimmed.length() > IBAN_MAX_SIZE) {
-            return false;
-        }
-        String reformat = trimmed.substring(4) + trimmed.substring(0, 4);
-        long total = 0;
-        for (int i = 0; i < reformat.length(); i++) {
-            int charValue = Character.getNumericValue(reformat.charAt(i));
-            if (charValue < 0 || charValue > 35) {
-                return false;
-            }
-            total = (charValue > 9 ? total * 100 : total * 10) + charValue;
-            if (total > IBAN_MAX) {
-                total = (total % IBAN_MODULUS);
-            }
-        }
-        return (total % IBAN_MODULUS) == 1;
+        return IBANValidator.getInstance().isValid(s);
     }
 
     public static boolean isValidBankCardNumber(String s) {
