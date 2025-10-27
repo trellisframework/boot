@@ -1,5 +1,6 @@
 package net.trellisframework.util.url;
 
+import com.google.common.net.InternetDomainName;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.URL;
@@ -78,6 +79,22 @@ public class URLUtil {
             return Optional.empty();
         } catch (Exception e) {
             return Optional.empty();
+        }
+    }
+
+    public static boolean isValidDomain(String domain) {
+        try {
+            return StringUtils.isNotBlank(InternetDomainName.from(URLUtil.getHost(domain)).topPrivateDomain().toString());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static String getDomainLtd(String domain) {
+        try {
+            return InternetDomainName.from(URLUtil.getHost(domain)).topPrivateDomain().toString();
+        } catch (Exception e) {
+            return null;
         }
     }
 
