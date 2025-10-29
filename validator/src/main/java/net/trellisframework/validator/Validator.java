@@ -1,7 +1,9 @@
 package net.trellisframework.validator;
 
+import com.google.common.net.InternetDomainName;
 import net.trellisframework.core.constant.Country;
 import net.trellisframework.util.phone.PhoneUtil;
+import net.trellisframework.util.url.URLUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.validator.routines.IBANValidator;
@@ -136,5 +138,13 @@ public class Validator {
 
     public static boolean isValidTimeZone(String value) {
         return StringUtils.isNotBlank(value) && Set.of(getAvailableIDs()).contains(value);
+    }
+
+    public static boolean isValidDomain(String domain) {
+        try {
+            return StringUtils.isNotBlank(InternetDomainName.from(URLUtil.getHost(domain)).topPrivateDomain().toString());
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

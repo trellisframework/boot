@@ -82,14 +82,6 @@ public class URLUtil {
         }
     }
 
-    public static boolean isValidDomain(String domain) {
-        try {
-            return StringUtils.isNotBlank(InternetDomainName.from(URLUtil.getHost(domain)).topPrivateDomain().toString());
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     public static String getDomainLtd(String domain) {
         try {
             return InternetDomainName.from(URLUtil.getHost(domain)).topPrivateDomain().toString();
