@@ -100,46 +100,78 @@ public class HttpHelper {
     }
 
     public static <T> T call(Call<T> func) throws HttpException {
-        return call(func, false);
+        return call(func, (Retry) null);
+    }
+
+    public static <T> T call(Call<T> func, Retry retry) throws HttpException {
+        return call(func, retry, false);
     }
 
     public static <T> T call(Call<T> func, Boolean log) throws HttpException {
-        return call(func, new HttpErrorMessage(HttpStatus.SERVICE_UNAVAILABLE, Messages.SERVICE_UNAVAILABLE.getMessage()), log);
+        return call(func, (Retry) null, log);
+    }
+
+    public static <T> T call(Call<T> func, Retry retry, Boolean log) throws HttpException {
+        return call(func, new HttpErrorMessage(HttpStatus.SERVICE_UNAVAILABLE, Messages.SERVICE_UNAVAILABLE.getMessage()), retry, log);
     }
 
     public static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError) {
-        return call(func, defaultError, false);
+        return call(func, defaultError, (Retry) null);
+    }
+
+    public static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError, Retry retry) {
+        return call(func, defaultError, retry, false);
     }
 
     public static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError, Boolean log) {
-        return execute(func, defaultError, log).body();
+        return call(func, defaultError, null, log);
+    }
+
+    public static <T, E extends HttpErrorMessage> T call(Call<T> func, E defaultError, Retry retry, Boolean log) {
+        return execute(func, defaultError, retry, log).body();
     }
 
     public static <T> Response<T> execute(Call<T> func) throws HttpException {
-        return execute(func, false);
+        return execute(func, (Retry) null);
     }
 
+    public static <T> Response<T> execute(Call<T> func, Retry retry) throws HttpException {
+        return execute(func, retry, false);
+    }
+
+
     public static <T> Response<T> execute(Call<T> func, Boolean log) throws HttpException {
-        return execute(func, new HttpErrorMessage(HttpStatus.SERVICE_UNAVAILABLE, Messages.SERVICE_UNAVAILABLE.getMessage()), log);
+        return execute(func, (Retry) null, log);
+    }
+
+    public static <T> Response<T> execute(Call<T> func, Retry retry, Boolean log) throws HttpException {
+        return execute(func, new HttpErrorMessage(HttpStatus.SERVICE_UNAVAILABLE, Messages.SERVICE_UNAVAILABLE.getMessage()), retry, log);
     }
 
     public static <T, E extends HttpErrorMessage> Response<T> execute(Call<T> func, E defaultError) {
-        return execute(func, defaultError, false);
+        return execute(func, defaultError, (Retry) null);
+    }
+
+    public static <T, E extends HttpErrorMessage> Response<T> execute(Call<T> func, E defaultError, Retry retry) {
+        return execute(func, defaultError, retry, false);
     }
 
     public static <T, E extends HttpErrorMessage> Response<T> execute(Call<T> func, E defaultError, Boolean log) {
+        return execute(func, defaultError, null, log);
+    }
+
+    public static <T, E extends HttpErrorMessage> Response<T> execute(Call<T> func, E defaultError, Retry retry, Boolean log) {
         try {
             Response<T> response;
             if (log) {
                 StopWatch stopWatch = new StopWatch();
                 stopWatch.start();
-                response = func.execute();
+                response = intercept(func, retry);
                 stopWatch.stop();
-                System.out.println(MessageFormat.format("Call: {0} Time:{1}ms", func.request().url(), stopWatch.getTotalTimeMillis()));
+                Logger.debug(MessageFormat.format("Call: {0} Time:{1}ms", func.request().url(), stopWatch.getTotalTimeMillis()));
             } else {
-                response = func.execute();
+                response = intercept(func, retry);
             }
-
             if (response.isSuccessful() || isRedirect(response)) {
                 return response;
             }
@@ -149,6 +181,29 @@ public class HttpHelper {
             Logger.error("CallWebServiceError", e.getMessage(), e);
             throw new ServiceUnavailableException(Messages.SERVICE_UNAVAILABLE);
         }
+    }
+
+    private static <T> Response<T> intercept(Call<T> func, Retry retry) throws IOException {
+        if (retry != null) {
+        IOException lastException = null;
+        long delay = retry.getInitialDelayMillis();
+        for (int attempt = 1; attempt <= retry.getMaxAttempts(); attempt++) {
+            try {
+                Response<T> response = func.execute();
+                if (!retry.shouldRetry(response.code()) || attempt == retry.getMaxAttempts())
+                    return response;
+            } catch (IOException e) {
+                if (attempt == retry.getMaxAttempts())
+                    throw e;
+                lastException = e;
+            }
+            retry.sleep(delay);
+            delay = retry.nextDelay(delay);
+        }
+        if (lastException != null)
+            throw lastException;
+        }
+        return func.execute();
     }
 
     private static boolean isRedirect(Response<?> response) {
