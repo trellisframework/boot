@@ -11,11 +11,25 @@ public final class EarlyReturnFeature {
     private EarlyReturnFeature() {
     }
 
+    public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout) {
+        return supplyAsync(() -> {
+            task.run();
+            return null;
+        }, timeout, () -> null, (Consumer<Void>) x -> {});
+    }
+
     public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout, Consumer<Void> onCompleted) {
         return supplyAsync(() -> {
             task.run();
             return null;
         }, timeout, () -> null, onCompleted);
+    }
+
+    public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout, int threads) {
+        return supplyAsync(() -> {
+            task.run();
+            return null;
+        }, timeout, () -> null, x -> {}, threads);
     }
 
     public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout, Consumer<Void> onCompleted, int threads) {
@@ -25,6 +39,13 @@ public final class EarlyReturnFeature {
         }, timeout, () -> null, onCompleted, threads);
     }
 
+    public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout, Executor executor) {
+        return supplyAsync(() -> {
+            task.run();
+            return null;
+        }, timeout, () -> null, x -> {}, executor);
+    }
+
     public static CompletableFuture<Void> runAsync(Runnable task, Duration timeout, Consumer<Void> onCompleted, Executor executor) {
         return supplyAsync(() -> {
             task.run();
@@ -32,12 +53,24 @@ public final class EarlyReturnFeature {
         }, timeout, () -> null, onCompleted, executor);
     }
 
+    public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout) {
+        return supplyAsync(task, timeout, onTimeout, x -> {}, Executors.newVirtualThreadPerTaskExecutor());
+    }
+
     public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout, Consumer<T> onCompleted) {
         return supplyAsync(task, timeout, onTimeout, onCompleted, Executors.newVirtualThreadPerTaskExecutor());
     }
 
+    public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout, int threads) {
+        return supplyAsync(task, timeout, onTimeout, x -> {}, Executors.newFixedThreadPool(threads));
+    }
+
     public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout, Consumer<T> onCompleted, int threads) {
         return supplyAsync(task, timeout, onTimeout, onCompleted, Executors.newFixedThreadPool(threads));
+    }
+
+    public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout, Executor executor) {
+        return core(task, timeout, onTimeout, x -> {}, executor);
     }
 
     public static <T> CompletableFuture<T> supplyAsync(Supplier<T> task, Duration timeout, Supplier<T> onTimeout, Consumer<T> onCompleted, Executor executor) {
