@@ -36,7 +36,7 @@ public class DistributedLockAspect {
     public Object around(ProceedingJoinPoint joinPoint, DistributedLock lock) throws Throwable {
         String key = getKey(joinPoint, lock.key());
         String lockName = lock.value() + (StringUtils.isNotBlank(key) ? ("::" + key) : StringUtils.EMPTY);
-        RLock rLock = client.getLock(lockName);
+        RLock rLock = lock.fairLock() ? client.getFairLock(lockName) : client.getLock(lockName);
         boolean acquired = rLock.tryLock(lock.waitTime(), lock.leaseTime(), lock.timeUnit());
         if (acquired) {
             try {
@@ -45,7 +45,7 @@ public class DistributedLockAspect {
                 rLock.unlock();
             }
         }
-        throw new RequestTimeoutException(Messages.LOCK_NOT_ACQUIRED);
+        throw new RequestTimeoutException(Messages.LOCK_NOT_ACQUIRED.getMessage() + ": " + lockName);
     }
 
     private String getKey(ProceedingJoinPoint pjp, String key) {
