@@ -5,15 +5,12 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.ExpandWildcard;
 import co.elastic.clients.elasticsearch.core.MsearchRequest;
-import co.elastic.clients.elasticsearch.core.MsearchResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.core.search.ResponseBody;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
-import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.Endpoint;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.TransportOptions;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
@@ -43,7 +40,7 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 if (ApiTypeHelper.isDefined(request.index())) propsSet |= _index;
 
                 if (propsSet == 0) {
-                    return "/_search";
+                    return "/siren/_search";
                 }
                 StringBuilder buf = new StringBuilder();
                 buf.append("/siren/");
