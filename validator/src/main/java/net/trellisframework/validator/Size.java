@@ -1,6 +1,5 @@
 package net.trellisframework.validator;
 
-
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintValidatorContextImpl;
 import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintViolationCreationContext;
@@ -9,6 +8,7 @@ import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.Payload;
+
 import java.io.Serializable;
 import java.lang.annotation.*;
 import java.text.MessageFormat;
@@ -48,7 +48,7 @@ public @interface Size {
                 String message = annotation.message();
                 if (StringUtils.isEmpty(message)) {
                     ConstraintViolationCreationContext constraintValidatorContext = ((ConstraintValidatorContextImpl) cxt).getConstraintViolationCreationContexts().parallelStream().findFirst().orElse(null);
-                    String field_name = (StringUtils.isNotBlank(annotation.name()) ? annotation.name() : constraintValidatorContext == null ? StringUtils.EMPTY : constraintValidatorContext.getPath().getLeafNode().getName()).replaceAll("([A-Z])", "_$1");
+                    String field_name = (StringUtils.isNotBlank(annotation.name()) ? annotation.name() : constraintValidatorContext == null ? StringUtils.EMPTY : constraintValidatorContext.getPath().toString()).replaceAll("([A-Z])", "_$1");
                     message = ((StringUtils.isEmpty(field_name) ? "COLLECTION" : field_name) + "_SIZE_MUST_BE_" + (annotation.min() > value ? "GREATER" : "LESS") + "_OR_EQUAL_THAN {0}").toUpperCase();
                     message = MessageFormat.format(message, annotation.min() > value ? annotation.min() : annotation.max());
                 }
@@ -63,10 +63,10 @@ public @interface Size {
 
     }
 
-    class SizeCollectionValidator extends AbstractSizeValidator<Collection> {
+    class SizeCollectionValidator extends AbstractSizeValidator<Object> {
         @Override
-        protected int length(Collection field) {
-            return field == null ? 0 : field.size();
+        protected int length(Object field) {
+            return field instanceof Collection<?> c ? c.size() : 0;
         }
     }
 
@@ -77,3 +77,4 @@ public @interface Size {
         }
     }
 }
+
