@@ -66,9 +66,7 @@ public @interface Size {
     class SizeCollectionValidator extends AbstractSizeValidator<Object> {
         @Override
         protected int length(Object field) {
-            return field == null ? 0
-                    : field instanceof Collection<?> ? ((Collection<?>) field).size()
-                    : field.toString().length();
+            return !(field instanceof Collection<?>) ? 0 : ((Collection<?>) field).size();
         }
     }
 
