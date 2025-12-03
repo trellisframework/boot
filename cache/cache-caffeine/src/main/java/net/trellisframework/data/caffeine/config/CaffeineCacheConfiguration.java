@@ -2,7 +2,7 @@ package net.trellisframework.data.caffeine.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import net.trellisframework.boot.cache.core.constant.CacheManagers;
-import net.trellisframework.boot.cache.core.payload.TTL;
+import net.trellisframework.boot.cache.core.payload.CacheableConfig;
 import net.trellisframework.boot.cache.core.scanner.AnnotationScanner;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -22,9 +22,11 @@ public class CaffeineCacheConfiguration {
     public CacheManager cacheManager() {
         WildcardCaffeineCacheManager caffeine = new WildcardCaffeineCacheManager();
         caffeine.setCaffeine(Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.DAYS).initialCapacity(10000));
-        Set<TTL> elements = AnnotationScanner.ttl();
-        for (TTL element : elements) {
-            Arrays.stream(element.getName()).forEach(name -> caffeine.registerCustomCache(name, Caffeine.newBuilder().expireAfterWrite(element.getTtl(), element.getUnit()).initialCapacity(1000).build()));
+        Set<CacheableConfig> elements = AnnotationScanner.cacheableConfig();
+        for (CacheableConfig element : elements) {
+            if (element.getTtl() != null) {
+                Arrays.stream(element.getName()).forEach(name -> caffeine.registerCustomCache(name, Caffeine.newBuilder().expireAfterWrite(element.getTtl()).initialCapacity(1000).build()));
+            }
         }
         return caffeine;
     }

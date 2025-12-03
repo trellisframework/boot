@@ -138,8 +138,8 @@ public class HttpExceptionHandling {
         return handleException(ex, HttpStatus.UNAUTHORIZED, req);
     }
 
-    @ExceptionHandler({ToManyRequestsException.class})
-    public ResponseEntity<Object> handleToManyRequestsException(ToManyRequestsException ex, HttpServletRequest req) {
+    @ExceptionHandler({TooManyRequestsException.class})
+    public ResponseEntity<Object> handleToManyRequestsException(TooManyRequestsException ex, HttpServletRequest req) {
         return handleException(ex, HttpStatus.TOO_MANY_REQUESTS, req);
     }
 

@@ -1,18 +1,20 @@
 package net.trellisframework.boot.cache.core.annotation;
 
+import net.trellisframework.boot.cache.core.constant.CacheSerializer;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.concurrent.TimeUnit;
 
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
-public @interface TimeToLive {
+public @interface CacheableConfig {
     String[] value() default {};
 
-    TimeUnit unit() default TimeUnit.DAYS;
+    String ttl() default "";
 
-    long ttl() default 1;
+    CacheSerializer serializer() default CacheSerializer.JDK;
+
 }

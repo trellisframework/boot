@@ -43,7 +43,7 @@ public class LogAspect {
         String identifier = StringUtils.defaultIfBlank(annotation.value(), StringUtils.EMPTY);
         try {
             if (Log.When.STARTED.equals(when) || Log.When.ALL.equals(when))
-                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Started" + correlationIdText + inputText, null);
+                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Started" + correlationIdText + inputText);
             stopWatch.start();
             Object result = point.proceed();
             outputText = output ? " Result= " + result : StringUtils.EMPTY;
@@ -55,7 +55,7 @@ public class LogAspect {
             stopWatch.stop();
             String executionTimeText = executionTime ? " Execution-Time= " + stopWatch.getTotalTimeMillis() + "ms" : StringUtils.EMPTY;
             if (Log.When.FINISHED.equals(when) || Log.When.ALL.equals(when))
-                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Finished" + correlationIdText + executionTimeText + inputText + outputText, null);
+                Logger.log(level, point.getTarget().getClass().getSimpleName(), method.getName(), identifier, "Finished" + correlationIdText + executionTimeText + inputText + outputText);
         }
     }
 

@@ -3,17 +3,17 @@ package net.trellisframework.http.exception;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
-public class ToManyRequestsException extends HttpException {
+public class TooManyRequestsException extends HttpException {
 
-    public ToManyRequestsException(MessageHandler message) {
+    public TooManyRequestsException(MessageHandler message) {
         super(message, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    public ToManyRequestsException(String message) {
+    public TooManyRequestsException(String message) {
         super(message, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    public ToManyRequestsException(ErrorMessage errorMessage) {
+    public TooManyRequestsException(ErrorMessage errorMessage) {
         super(new HttpErrorMessage(HttpStatus.TOO_MANY_REQUESTS, errorMessage.getMessage(), errorMessage.getStatus(), errorMessage.getPath(), errorMessage.getTimestamp()));
     }
 
