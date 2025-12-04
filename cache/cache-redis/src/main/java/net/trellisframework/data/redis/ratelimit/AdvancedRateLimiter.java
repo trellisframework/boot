@@ -6,9 +6,9 @@ import net.trellisframework.core.log.Logger;
 import net.trellisframework.data.redis.constant.Messages;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.http.exception.PreConditionRequiredException;
-import org.redisson.api.RJsonBucket;
+import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import org.redisson.codec.JacksonCodec;
+import org.redisson.codec.JsonJacksonCodec;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -182,7 +182,6 @@ public class AdvancedRateLimiter {
         return false;
     }
 
-
     private static void cleanupExpiredPermits(ResourceState state, RateLimit limits, long now) {
         if (limits.getMaxConcurrent() <= 0 || limits.getPermitTimeout() == null) return;
         state.getAcquiredTimestamps().removeIf(ts -> now - ts >= limits.getPermitTimeout().toMillis());
@@ -254,7 +253,7 @@ public class AdvancedRateLimiter {
 
         if (getRedisson() != null) {
             try {
-                RJsonBucket<ResourceState> bucket = getRedisson().getJsonBucket(key, new JacksonCodec<>(ResourceState.class));
+                RBucket<ResourceState> bucket = getRedisson().getBucket(key, new JsonJacksonCodec());
                 state = bucket.get();
             } catch (Exception e) {
                 Logger.warn("Failed to get from Redis: " + e.getMessage());
@@ -295,7 +294,7 @@ public class AdvancedRateLimiter {
         if (getRedisson() != null) {
             try {
                 long maxDuration = limits.getRates().stream().mapToLong(r -> r.getDuration().toMillis()).max().orElse(86400_000L);
-                RJsonBucket<ResourceState> bucket = getRedisson().getJsonBucket(key, new JacksonCodec<>(ResourceState.class));
+                RBucket<ResourceState> bucket = getRedisson().getBucket(key, new JsonJacksonCodec());
                 bucket.set(state);
                 bucket.expire(Duration.ofMillis(maxDuration + 60_000L));
             } catch (Exception e) {
