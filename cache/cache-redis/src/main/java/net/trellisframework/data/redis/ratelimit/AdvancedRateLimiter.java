@@ -145,7 +145,7 @@ public class AdvancedRateLimiter {
     public static <T> boolean canAcquire(String poolName, String target) {
         var pool = (PoolConfig<T>) pools.get(poolName);
         if (pool == null)
-            throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
+            return false;
 
         List<T> resources = pool.resources;
         if (resources.isEmpty())
@@ -153,8 +153,7 @@ public class AdvancedRateLimiter {
 
         RateLimit targetLimits = (pool.targetLimits != null && target != null) ? pool.targetLimits.get(target) : null;
 
-        for (int i = 0; i < resources.size(); i++) {
-            T resource = resources.get(i);
+        for (T resource : resources) {
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
 
