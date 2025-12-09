@@ -72,6 +72,47 @@ public class AdvancedRateLimiter {
         pools.put(poolName, new PoolConfig(pool.resources, pool.resourceLimits, targetLimits, pool.roundRobin, pool.key));
     }
 
+    public static void putTargetLimit(String poolName, String target, RateLimit rateLimit) {
+        var pool = pools.get(poolName);
+        if (pool == null)
+            throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
+        getOrCreateTargetLimits(poolName, pool).put(target, rateLimit);
+    }
+
+    public static void putTargetLimitIfAbsent(String poolName, String target, RateLimit rateLimit) {
+        var pool = pools.get(poolName);
+        if (pool == null)
+            throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
+        getOrCreateTargetLimits(poolName, pool).putIfAbsent(target, rateLimit);
+    }
+
+    public static void removeTargetLimit(String poolName, String target) {
+        var pool = pools.get(poolName);
+        if (pool == null)
+            throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
+        if (pool.targetLimits == null)
+            return;
+        pool.targetLimits.remove(target);
+    }
+
+    public static boolean containsTargetLimit(String poolName, String target) {
+        var pool = pools.get(poolName);
+        if (pool == null)
+            return false;
+        if (pool.targetLimits == null)
+            return false;
+        return pool.targetLimits.contains(target);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static TargetLimits getOrCreateTargetLimits(String poolName, PoolConfig<?> pool) {
+        if (pool.targetLimits != null)
+            return pool.targetLimits;
+        var newTargetLimits = TargetLimits.create();
+        pools.put(poolName, new PoolConfig(pool.resources, pool.resourceLimits, newTargetLimits, pool.roundRobin, pool.key));
+        return newTargetLimits;
+    }
+
     public static <T> RateLimitResource<T> acquire(String poolName) {
         return acquire(poolName, null);
     }

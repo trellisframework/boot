@@ -25,14 +25,16 @@ public class RateLimit {
         private Duration permitTimeout = Duration.ofMinutes(1);
         private Duration defaultCoolOff = Duration.ofMinutes(1);
 
-        public LimitationBuilder maxConcurrent(int maxConcurrent) {
+        public LimitationBuilder maxConcurrent(Integer maxConcurrent) {
             this.maxConcurrent = maxConcurrent;
             return this;
         }
 
-        public LimitationBuilder maxConcurrent(int maxConcurrent, Duration timeout) {
-            this.maxConcurrent = maxConcurrent;
-            this.permitTimeout = timeout;
+        public LimitationBuilder maxConcurrent(Integer maxConcurrent, Duration timeout) {
+            if (maxConcurrent != null) {
+                this.maxConcurrent = maxConcurrent;
+                this.permitTimeout = timeout;
+            }
             return this;
         }
 
@@ -41,48 +43,50 @@ public class RateLimit {
             return this;
         }
 
-        public LimitationBuilder add(Duration duration, int maxRequests) {
-            rates.add(Rate.of(duration, maxRequests));
+        public LimitationBuilder add(Duration duration, Integer maxRequests) {
+            if (maxRequests != null) {
+                rates.add(Rate.of(duration, maxRequests));
+            }
             return this;
         }
 
-        public LimitationBuilder millis(int maxRequests) {
+        public LimitationBuilder millis(Integer maxRequests) {
             return millis(1, maxRequests);
         }
 
-        public LimitationBuilder millis(int millis, int maxRequests) {
+        public LimitationBuilder millis(Integer millis, Integer maxRequests) {
             return add(Duration.ofMillis(millis), maxRequests);
         }
 
-        public LimitationBuilder second(int maxRequests) {
+        public LimitationBuilder second(Integer maxRequests) {
             return second(1, maxRequests);
         }
 
-        public LimitationBuilder second(int second, int maxRequests) {
+        public LimitationBuilder second(Integer second, Integer maxRequests) {
             return add(Duration.ofSeconds(second), maxRequests);
         }
 
-        public LimitationBuilder minute(int maxRequests) {
+        public LimitationBuilder minute(Integer maxRequests) {
             return minute(1, maxRequests);
         }
 
-        public LimitationBuilder minute(int minute, int maxRequests) {
+        public LimitationBuilder minute(Integer minute, Integer maxRequests) {
             return add(Duration.ofMinutes(minute), maxRequests);
         }
 
-        public LimitationBuilder hour(int maxRequests) {
+        public LimitationBuilder hour(Integer maxRequests) {
             return hour(1, maxRequests);
         }
 
-        public LimitationBuilder hour(int hour, int maxRequests) {
+        public LimitationBuilder hour(Integer hour, Integer maxRequests) {
             return add(Duration.ofHours(hour), maxRequests);
         }
 
-        public LimitationBuilder day(int maxRequests) {
+        public LimitationBuilder day(Integer maxRequests) {
             return day(1, maxRequests);
         }
 
-        public LimitationBuilder day(int day, int maxRequests) {
+        public LimitationBuilder day(Integer day, Integer maxRequests) {
             return add(Duration.ofDays(day), maxRequests);
         }
 

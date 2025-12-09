@@ -11,9 +11,30 @@ public class TargetLimits {
         return new TargetLimits();
     }
 
-    public TargetLimits add(String target, RateLimit rateLimit) {
+    public TargetLimits putAll(Map<String, RateLimit> rateLimits) {
+        if (rateLimits != null) {
+            limits.putAll(rateLimits);
+        }
+        return this;
+    }
+
+    public TargetLimits put(String target, RateLimit rateLimit) {
         limits.put(target, rateLimit);
         return this;
+    }
+
+    public TargetLimits putIfAbsent(String target, RateLimit rateLimit) {
+        limits.putIfAbsent(target, rateLimit);
+        return this;
+    }
+
+    public TargetLimits remove(String target) {
+        limits.remove(target);
+        return this;
+    }
+
+    public boolean contains(String target) {
+        return limits.containsKey(target);
     }
 
     public TargetLimits defaultLimit(RateLimit rateLimit) {
@@ -25,4 +46,3 @@ public class TargetLimits {
         return limits.getOrDefault(target, defaultLimit);
     }
 }
-
