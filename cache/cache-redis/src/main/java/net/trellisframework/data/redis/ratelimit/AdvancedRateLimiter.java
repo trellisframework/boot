@@ -27,6 +27,7 @@ public class AdvancedRateLimiter {
     private static final String KEY_PREFIX = "rate-limiter:";
     private static final Map<String, PoolConfig<?>> pools = new ConcurrentHashMap<>();
     private static final Map<String, ResourceState> localCache = new ConcurrentHashMap<>();
+    private static final Map<String, RateLimit> rateLimitOverrides = new ConcurrentHashMap<>();
     private static RedissonClient redisson;
 
     private static RedissonClient getRedisson() {
@@ -104,6 +105,13 @@ public class AdvancedRateLimiter {
         return pool.targetLimits.contains(target);
     }
 
+    static void setRateLimitOverride(String key, RateLimit limits) {
+        if (limits == null)
+            rateLimitOverrides.remove(key);
+        else
+            rateLimitOverrides.put(key, limits);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static TargetLimits getOrCreateTargetLimits(String poolName, PoolConfig<?> pool) {
         if (pool.targetLimits != null)
@@ -138,41 +146,44 @@ public class AdvancedRateLimiter {
         if (resources.isEmpty())
             return null;
 
-        RateLimit targetLimits = (pool.targetLimits != null && target != null) ? pool.targetLimits.get(target) : null;
-
         var startIdx = pool.roundRobin.getAndIncrement() % resources.size();
         for (int i = 0; i < resources.size(); i++) {
             T resource = resources.get((startIdx + i) % resources.size());
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
 
+            RateLimit effectiveResourceLimits = rateLimitOverrides.getOrDefault(resourceKey, pool.resourceLimits);
+            RateLimit effectiveTargetLimits = targetKey != null ? rateLimitOverrides.get(targetKey) : null;
+            if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
+                effectiveTargetLimits = pool.targetLimits.get(target);
+
             synchronized ((resourceKey + (targetKey != null ? targetKey : "")).intern()) {
                 long now = System.currentTimeMillis();
-                if (pool.resourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, pool.resourceLimits);
-                    cleanupExpiredPermits(resourceState, pool.resourceLimits, now);
-                    if (!canAcquire(resourceState, pool.resourceLimits, now))
+                if (effectiveResourceLimits != null) {
+                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
+                    cleanupExpiredPermits(resourceState, effectiveResourceLimits, now);
+                    if (!canAcquire(resourceState, effectiveResourceLimits, now))
                         continue;
                 }
-                if (targetLimits != null) {
-                    ResourceState targetState = getState(targetKey, targetLimits);
-                    cleanupExpiredPermits(targetState, targetLimits, now);
-                    if (!canAcquire(targetState, targetLimits, now))
+                if (effectiveTargetLimits != null) {
+                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
+                    cleanupExpiredPermits(targetState, effectiveTargetLimits, now);
+                    if (!canAcquire(targetState, effectiveTargetLimits, now))
                         continue;
                 }
-                if (pool.resourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, pool.resourceLimits);
-                    recordAcquire(resourceState, pool.resourceLimits, now);
-                    setState(resourceKey, resourceState, pool.resourceLimits);
+                if (effectiveResourceLimits != null) {
+                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
+                    recordAcquire(resourceState, effectiveResourceLimits, now);
+                    setState(resourceKey, resourceState, effectiveResourceLimits);
                 }
 
-                if (targetLimits != null) {
-                    ResourceState targetState = getState(targetKey, targetLimits);
-                    recordAcquire(targetState, targetLimits, now);
-                    setState(targetKey, targetState, targetLimits);
+                if (effectiveTargetLimits != null) {
+                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
+                    recordAcquire(targetState, effectiveTargetLimits, now);
+                    setState(targetKey, targetState, effectiveTargetLimits);
                 }
 
-                return new RateLimitResource<>(resourceKey, targetKey, pool.resourceLimits, targetLimits, resource);
+                return new RateLimitResource<>(resourceKey, targetKey, effectiveResourceLimits, effectiveTargetLimits, resource);
             }
         }
         return null;
@@ -192,27 +203,30 @@ public class AdvancedRateLimiter {
         if (resources.isEmpty())
             return false;
 
-        RateLimit targetLimits = (pool.targetLimits != null && target != null) ? pool.targetLimits.get(target) : null;
-
         for (T resource : resources) {
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
+
+            RateLimit effectiveResourceLimits = rateLimitOverrides.getOrDefault(resourceKey, pool.resourceLimits);
+            RateLimit effectiveTargetLimits = targetKey != null ? rateLimitOverrides.get(targetKey) : null;
+            if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
+                effectiveTargetLimits = pool.targetLimits.get(target);
 
             synchronized ((resourceKey + (targetKey != null ? targetKey : "")).intern()) {
                 long now = System.currentTimeMillis();
                 boolean resourceAvailable = true;
                 boolean targetAvailable = true;
 
-                if (pool.resourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, pool.resourceLimits);
-                    cleanupExpiredPermits(resourceState, pool.resourceLimits, now);
-                    resourceAvailable = canAcquire(resourceState, pool.resourceLimits, now);
+                if (effectiveResourceLimits != null) {
+                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
+                    cleanupExpiredPermits(resourceState, effectiveResourceLimits, now);
+                    resourceAvailable = canAcquire(resourceState, effectiveResourceLimits, now);
                 }
 
-                if (resourceAvailable && targetLimits != null) {
-                    ResourceState targetState = getState(targetKey, targetLimits);
-                    cleanupExpiredPermits(targetState, targetLimits, now);
-                    targetAvailable = canAcquire(targetState, targetLimits, now);
+                if (resourceAvailable && effectiveTargetLimits != null) {
+                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
+                    cleanupExpiredPermits(targetState, effectiveTargetLimits, now);
+                    targetAvailable = canAcquire(targetState, effectiveTargetLimits, now);
                 }
 
                 if (resourceAvailable && targetAvailable)

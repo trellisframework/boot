@@ -35,4 +35,11 @@ public class RateLimitResource<T> {
         if (targetLimits != null)
             AdvancedRateLimiter.applyCoolOff(targetKey, duration != null ? duration : targetLimits.defaultCoolOff, targetLimits);
     }
+
+    public void putRateLimit(RateLimit rateLimit) {
+        if (targetKey != null)
+            AdvancedRateLimiter.setRateLimitOverride(targetKey, rateLimit);
+        else
+            AdvancedRateLimiter.setRateLimitOverride(resourceKey, rateLimit);
+    }
 }

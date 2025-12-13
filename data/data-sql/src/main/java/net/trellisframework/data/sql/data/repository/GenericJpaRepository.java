@@ -6,6 +6,7 @@ import com.querydsl.core.dml.InsertClause;
 import com.querydsl.core.dml.UpdateClause;
 import com.querydsl.core.types.EntityPath;
 import com.querydsl.core.types.Expression;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.PathBuilderFactory;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -20,6 +21,9 @@ import org.springframework.data.jpa.repository.support.Querydsl;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 import org.springframework.data.support.PageableExecutionUtils;
+
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.springframework.data.jpa.repository.EntityGraph.EntityGraphType;
 
@@ -93,5 +97,16 @@ public interface GenericJpaRepository<TEntity, ID> extends GenericRepository, Jp
     default <T> Page<T> findAll(JPQLQuery<T> query, Pageable pageable) {
         Querydsl querydsl = new Querydsl(getEntityManager(), (new PathBuilderFactory()).create(query.getType()));
         return PageableExecutionUtils.getPage(querydsl.applyPagination(pageable, query).fetch(), pageable, query::fetchCount);
+    }
+
+    default TEntity upsert(EntityPath<TEntity> entityPath, BooleanExpression condition, Function<TEntity, TEntity> update, Supplier<TEntity> insert) {
+        TEntity existing = getFactory().selectFrom(entityPath).where(condition).fetchOne();
+        if (existing != null) {
+            TEntity updated = update.apply(existing);
+            return save(updated);
+        } else {
+            TEntity entity = insert.get();
+            return save(entity);
+        }
     }
 }
