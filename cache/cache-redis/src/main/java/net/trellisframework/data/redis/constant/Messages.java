@@ -7,5 +7,6 @@ public enum Messages implements MessageHandler {
     POOL_NOT_REGISTERED,
     NO_RESOURCES_IN_POOL,
     NO_AVAILABLE_RESOURCES_IN_POOL,
+    NO_AVAILABLE_RESOURCES,
 
 }

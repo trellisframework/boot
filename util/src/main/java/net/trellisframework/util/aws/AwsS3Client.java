@@ -30,11 +30,19 @@ public class AwsS3Client {
     }
 
     public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit) {
+        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, null);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
         Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
         AmazonS3 client = getClient(properties);
-        GeneratePresignedUrlRequest generatePresignedUrlRequest = new GeneratePresignedUrlRequest(properties.getKey(), key, method);
-        generatePresignedUrlRequest.setExpiration(Date.from(Instant.now().plus(expireDuration, expireDurationUnit)));
-        return client.generatePresignedUrl(generatePresignedUrlRequest).toString();
+        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(properties.getKey(), key, method).withExpiration(Date.from(Instant.now().plus(expireDuration, expireDurationUnit)));
+        if (StringUtils.isNotBlank(downloadFileName)) {
+        ResponseHeaderOverrides overrides = new ResponseHeaderOverrides();
+        overrides.setContentDisposition("attachment; filename=\"" + downloadFileName + "\"");
+        request.setResponseHeaders(overrides);
+        }
+        return client.generatePresignedUrl(request).toString();
     }
 
     public static String getPublicUrl(String bucket, String key) {

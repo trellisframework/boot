@@ -1,6 +1,8 @@
 package net.trellisframework.data.redis.ratelimit;
 
 import lombok.*;
+import net.trellisframework.data.redis.constant.Messages;
+import net.trellisframework.http.exception.NotFoundException;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -42,4 +44,22 @@ public class RateLimitResource<T> {
         else
             AdvancedRateLimiter.setRateLimitOverride(resourceKey, rateLimit);
     }
+
+    public boolean canAcquire() {
+        if (resourceLimits != null && !AdvancedRateLimiter.canAcquireResource(resourceKey, resourceLimits))
+            return false;
+        return targetLimits == null || AdvancedRateLimiter.canAcquireResource(targetKey, targetLimits);
+    }
+
+    public boolean tryAcquire() {
+        if (resourceLimits != null && !AdvancedRateLimiter.tryAcquireResource(resourceKey, resourceLimits))
+            return false;
+        return targetLimits == null || AdvancedRateLimiter.tryAcquireResource(targetKey, targetLimits);
+    }
+
+    public void acquire() {
+        if (!tryAcquire())
+            throw new NotFoundException(Messages.NO_AVAILABLE_RESOURCES.getMessage());
+    }
+
 }

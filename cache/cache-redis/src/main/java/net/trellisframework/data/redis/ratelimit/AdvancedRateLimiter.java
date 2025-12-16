@@ -253,7 +253,6 @@ public class AdvancedRateLimiter {
             if (rate.isPresent() && window.getUsed() >= rate.get().getMaxRequests())
                 return false;
         }
-
         return true;
     }
 
@@ -363,6 +362,30 @@ public class AdvancedRateLimiter {
             var state = getState(key, limits);
             state.setCoolOffUntil(System.currentTimeMillis() + duration.toMillis());
             setState(key, state, limits);
+        }
+    }
+
+    static boolean canAcquireResource(String key, RateLimit limits) {
+        if (key == null || limits == null) return true;
+        synchronized (key.intern()) {
+            long now = System.currentTimeMillis();
+            var state = getState(key, limits);
+            cleanupExpiredPermits(state, limits, now);
+            return canAcquire(state, limits, now);
+        }
+    }
+
+    static boolean tryAcquireResource(String key, RateLimit limits) {
+        if (key == null || limits == null) return true;
+        synchronized (key.intern()) {
+            long now = System.currentTimeMillis();
+            var state = getState(key, limits);
+            cleanupExpiredPermits(state, limits, now);
+            if (!canAcquire(state, limits, now))
+                return false;
+            recordAcquire(state, limits, now);
+            setState(key, state, limits);
+            return true;
         }
     }
 
