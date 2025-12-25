@@ -3,13 +3,14 @@ package net.trellisframework.data.redis.ratelimit;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import net.trellisframework.core.payload.Payload;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class RateLimit {
+public class RateLimit implements Payload {
     List<Rate> rates = new ArrayList<>();
     int maxConcurrent;
     Duration permitTimeout = Duration.ofMinutes(1);
@@ -108,7 +109,7 @@ public class RateLimit {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor(staticName = "of")
-    public static class Rate {
+    public static class Rate implements Payload {
         Duration duration;
         int maxRequests;
     }

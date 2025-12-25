@@ -1,9 +1,11 @@
 package net.trellisframework.data.redis.ratelimit;
 
+import net.trellisframework.core.payload.Payload;
+
 import java.util.HashMap;
 import java.util.Map;
 
-public class TargetLimits {
+public class TargetLimits implements Payload {
     private final Map<String, RateLimit> limits = new HashMap<>();
     private RateLimit defaultLimit;
 

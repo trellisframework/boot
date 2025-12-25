@@ -6,9 +6,10 @@ import net.trellisframework.core.log.Logger;
 import net.trellisframework.data.redis.constant.Messages;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.http.exception.PreConditionRequiredException;
+import net.trellisframework.util.json.JsonUtil;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import org.redisson.codec.JsonJacksonCodec;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -306,8 +307,8 @@ public class AdvancedRateLimiter {
 
         if (getRedisson() != null) {
             try {
-                RBucket<ResourceState> bucket = getRedisson().getBucket(key, new JsonJacksonCodec());
-                state = bucket.get();
+                RBucket<String> bucket = getRedisson().getBucket(key, StringCodec.INSTANCE);
+                state = JsonUtil.toObject(bucket.get(), ResourceState.class);
             } catch (Exception e) {
                 Logger.warn("Failed to get from Redis: " + e.getMessage());
             }
@@ -347,8 +348,8 @@ public class AdvancedRateLimiter {
         if (getRedisson() != null) {
             try {
                 long maxDuration = limits.getRates().stream().mapToLong(r -> r.getDuration().toMillis()).max().orElse(86400_000L);
-                RBucket<ResourceState> bucket = getRedisson().getBucket(key, new JsonJacksonCodec());
-                bucket.set(state);
+                RBucket<String> bucket = getRedisson().getBucket(key, StringCodec.INSTANCE);
+                bucket.set(JsonUtil.toString(state));
                 bucket.expire(Duration.ofMillis(maxDuration + 60_000L));
             } catch (Exception e) {
                 Logger.warn("Failed to save to Redis: " + e.getMessage());

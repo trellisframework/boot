@@ -1,6 +1,7 @@
 package net.trellisframework.data.redis.ratelimit;
 
 import lombok.*;
+import net.trellisframework.core.payload.Payload;
 import net.trellisframework.data.redis.constant.Messages;
 import net.trellisframework.http.exception.NotFoundException;
 
@@ -9,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class RateLimitResource<T> {
+public class RateLimitResource<T> implements Payload {
     private final String resourceKey;
     private final String targetKey;
     private final RateLimit resourceLimits;

@@ -12,6 +12,7 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.redisson.api.RBucket;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.expression.MethodBasedEvaluationContext;
 import org.springframework.core.DefaultParameterNameDiscoverer;
@@ -64,8 +65,8 @@ public class DistributedLockAspect {
     private Object handleCooldown(ProceedingJoinPoint joinPoint, DistributedLock lock) throws Throwable {
         String key = Optional.ofNullable(lock.key()).filter(StringUtils::isNotBlank).map(x -> getKey(joinPoint, x)).orElseGet(() -> getDefaultKey(joinPoint));
         String redisKey = "cooldown:" + lock.value() + (StringUtils.isNotBlank(key) ? ("::" + key) : StringUtils.EMPTY);
-        RBucket<Long> bucket = client.getBucket(redisKey);
-        Long lastSuccessTime = bucket.get();
+        RBucket<String> bucket = client.getBucket(redisKey, StringCodec.INSTANCE);
+        Long lastSuccessTime = Optional.ofNullable(bucket.get()).map(Long::parseLong).orElse(null);
         long currentTime = System.currentTimeMillis();
         Duration duration = DurationStyle.SIMPLE.parse(lock.cooldown());
         long intervalMillis = duration.toMillis();
@@ -74,7 +75,7 @@ public class DistributedLockAspect {
         }
         Object result = joinPoint.proceed();
         long ttl = intervalMillis + 1000;
-        bucket.set(currentTime, Duration.ofMillis(ttl));
+        bucket.set(String.valueOf(currentTime), Duration.ofMillis(ttl));
         return result;
     }
 

@@ -4,14 +4,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import net.trellisframework.core.payload.Payload;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class ResourceState implements Serializable {
+public class ResourceState implements Payload {
     List<Window> rates = new ArrayList<>();
     List<Long> acquiredTimestamps = new ArrayList<>();
     Long coolOffUntil;
@@ -20,7 +20,7 @@ public class ResourceState implements Serializable {
     @NoArgsConstructor
     @AllArgsConstructor(staticName = "of")
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class Window implements Serializable {
+    public static class Window implements Payload {
         long duration;
         long startAt;
         int used;
