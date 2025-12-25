@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -308,7 +309,7 @@ public class AdvancedRateLimiter {
         if (getRedisson() != null) {
             try {
                 RBucket<String> bucket = getRedisson().getBucket(key, StringCodec.INSTANCE);
-                state = JsonUtil.toObject(bucket.get(), ResourceState.class);
+                state = Optional.ofNullable(bucket.get()).map(x -> JsonUtil.toObject(x, ResourceState.class)).orElse(null);
             } catch (Exception e) {
                 Logger.warn("Failed to get from Redis: " + e.getMessage());
             }
