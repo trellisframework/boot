@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
-public class RedisTimeSeriesCounter {
+public class RedisSlidingWindowCounter {
 
     private static final String KEY_PREFIX = "swc:";
     private static final Duration DEFAULT_RETENTION = Duration.ofHours(24);
