@@ -162,8 +162,8 @@ public class Logger {
         return log(supplier, thresholdMs, Logger::warn, message, args);
     }
 
-    public static <T> T warn(Supplier<T> supplier, BiPredicate<Long, T> condition, BiFunction<Long, T, String> messageFormatter) {
-        return log(supplier, condition, messageFormatter, Logger::warn);
+    public static <T> T warn(Supplier<T> supplier, BiPredicate<Long, T> condition, BiFunction<Long, T, String> message) {
+        return log(supplier, condition, message, Logger::warn);
     }
 
     public static void error(String message) {
@@ -217,8 +217,6 @@ public class Logger {
     public static void fatal(String identifier, String message, Object... params) {
         log(StandardLevel.FATAL, getFileName(), getMethodName(), identifier, message, params);
     }
-
-
 
     public static void fatal(Runnable runnable, long thresholdMs, String message) {
         fatal(runnable, thresholdMs, message, new Object[0]);
@@ -287,7 +285,7 @@ public class Logger {
         String text = String.format("[%s]-{%s}-(%s)", Thread.currentThread().getName(), clazz, method);
         if (StringUtils.isNotBlank(identifier))
             text = text.concat("-" + identifier);
-        text = text.concat("->" + message);
+        text = text.concat("-> " + message);
         if (StandardLevel.TRACE.equals(level))
             logger.trace(text, t);
         else if (StandardLevel.DEBUG.equals(level))

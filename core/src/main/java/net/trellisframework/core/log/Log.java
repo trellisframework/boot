@@ -13,6 +13,15 @@ public @interface Log {
     Option[] options() default {Option.INPUT, Option.OUTPUT};
     When when() default When.ALL;
     StandardLevel level() default StandardLevel.INFO;
+    Condition condition() default @Condition;
+
+    @Target({})
+    @Retention(RetentionPolicy.RUNTIME)
+    @Documented
+    @interface Condition {
+        String start() default "";
+        String finish() default "";
+    }
 
     enum Option {
         INPUT,
