@@ -34,6 +34,7 @@
         <module>ui</module>
         <module>socket</module>
         <module>cache</module>
+        <module>workflow</module>
     </modules>
     <dependencies>
         <dependency>
