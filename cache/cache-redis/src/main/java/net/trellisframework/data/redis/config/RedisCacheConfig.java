@@ -11,9 +11,9 @@ import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.cache.CacheProperties;
-import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
+import org.springframework.boot.cache.autoconfigure.CacheProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -46,16 +46,16 @@ public class RedisCacheConfig {
         Map<String, RedisCacheConfiguration> initialCacheConfigurations = new HashMap<>();
         for (CacheableConfig element : elements) {
             RedisCacheConfiguration configuration = element.getTtl() == null ? RedisCacheConfiguration.defaultCacheConfig().serializeValuesWith(serializer(element.getSerializer())) : RedisCacheConfiguration.defaultCacheConfig().serializeValuesWith(serializer(element.getSerializer())).entryTtl(element.getTtl());
-            Optional.ofNullable(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(configuration::prefixCacheNameWith);
-            Optional.ofNullable(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> configuration.disableCachingNullValues());
-            Optional.ofNullable(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> configuration.disableKeyPrefix());
+            Optional.of(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(configuration::prefixCacheNameWith);
+            Optional.of(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> configuration.disableCachingNullValues());
+            Optional.of(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> configuration.disableKeyPrefix());
             Arrays.stream(element.getName()).forEach(name -> initialCacheConfigurations.put(name, configuration));
         }
         RedisCacheConfiguration defaultConfiguration = RedisCacheConfiguration.defaultCacheConfig().serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string())).serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new JdkSerializationRedisSerializer()));
-        Optional.ofNullable(property.getRedis()).map(CacheProperties.Redis::getTimeToLive).ifPresent(defaultConfiguration::entryTtl);
-        Optional.ofNullable(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(defaultConfiguration::prefixCacheNameWith);
-        Optional.ofNullable(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> defaultConfiguration.disableCachingNullValues());
-        Optional.ofNullable(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> defaultConfiguration.disableKeyPrefix());
+        Optional.of(property.getRedis()).map(CacheProperties.Redis::getTimeToLive).ifPresent(defaultConfiguration::entryTtl);
+        Optional.of(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(defaultConfiguration::prefixCacheNameWith);
+        Optional.of(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> defaultConfiguration.disableCachingNullValues());
+        Optional.of(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> defaultConfiguration.disableKeyPrefix());
         WildcardRedisCacheManager cacheManager = new WildcardRedisCacheManager(RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory), defaultConfiguration, initialCacheConfigurations);
         cacheManager.setTransactionAware(true);
         return cacheManager;
@@ -72,7 +72,7 @@ public class RedisCacheConfig {
     }
 
     @Bean
-    public RedissonClient redissonClient(RedisProperties properties) {
+    public RedissonClient redissonClient(DataRedisProperties properties) {
         Config config = new Config();
         config.useSingleServer()
                 .setAddress(StringUtils.defaultIfBlank(properties.getUrl(), "redis://" + properties.getHost() + ":" + properties.getPort()))

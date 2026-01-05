@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.ExpandWildcard;
 import co.elastic.clients.elasticsearch.core.MsearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResult;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.core.search.ResponseBody;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
@@ -73,9 +74,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 if (request.preFilterShardSize() != null) {
                     params.put("pre_filter_shard_size", String.valueOf(request.preFilterShardSize()));
                 }
-                if (request.minCompatibleShardNode() != null) {
-                    params.put("min_compatible_shard_node", request.minCompatibleShardNode());
-                }
                 if (request.forceSyntheticSource() != null) {
                     params.put("force_synthetic_source", String.valueOf(request.forceSyntheticSource()));
                 }
@@ -93,9 +91,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 }
                 if (request.analyzer() != null) {
                     params.put("analyzer", request.analyzer());
-                }
-                if (request.ignoreThrottled() != null) {
-                    params.put("ignore_throttled", String.valueOf(request.ignoreThrottled()));
                 }
                 if (request.maxConcurrentShardRequests() != null) {
                     params.put("max_concurrent_shard_requests", String.valueOf(request.maxConcurrentShardRequests()));
@@ -195,9 +190,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 if (request.allowNoIndices() != null) {
                     params.put("allow_no_indices", String.valueOf(request.allowNoIndices()));
                 }
-                if (request.ignoreThrottled() != null) {
-                    params.put("ignore_throttled", String.valueOf(request.ignoreThrottled()));
-                }
                 if (request.maxConcurrentSearches() != null) {
                     params.put("max_concurrent_searches", String.valueOf(request.maxConcurrentSearches()));
                 }
@@ -272,5 +264,13 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
     public Long sirenCount(SearchRequest request) throws IOException, ElasticsearchException {
         JsonEndpoint<SearchRequest, SearchResponse, ErrorResponse> endpoint = (JsonEndpoint<SearchRequest, SearchResponse, ErrorResponse>) _SEARCH_ENDPOINT;
         return Optional.ofNullable(this.transport.performRequest(request, endpoint, this.transportOptions)).map(ResponseBody::hits).map(HitsMetadata::total).map(TotalHits::value).orElse(0L);
+    }
+
+    public <TDocument> SearchResponse<TDocument> smartSearch(Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn, Class<TDocument> clazz, boolean useSiren) throws IOException, ElasticsearchException {
+        return useSiren ? sirenSearch(fn, clazz) : search(fn, clazz);
+    }
+
+    public <TDocument> MultiSearchResult<TDocument> smartMSearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> clazz, boolean useSiren) throws IOException, ElasticsearchException {
+        return useSiren ? sirenMSearch(fn, clazz) : msearch(fn, clazz);
     }
 }

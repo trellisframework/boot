@@ -1,6 +1,5 @@
 package net.trellisframework.util.aws;
 
-import com.amazonaws.regions.Regions;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import net.trellisframework.core.payload.Payload;
@@ -21,7 +20,7 @@ public class AwsS3ClientProperties {
     @Validated
     public static class S3PropertiesDefinition {
         private String endpoint;
-        private Regions region;
+        private String region;
         private Credential credential;
         private Boolean pathStyle;
     }

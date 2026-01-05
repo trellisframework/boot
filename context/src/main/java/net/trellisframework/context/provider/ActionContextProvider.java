@@ -1,7 +1,6 @@
 package net.trellisframework.context.provider;
 
 import net.trellisframework.context.action.*;
-import org.checkerframework.checker.units.qual.A;
 
 public interface ActionContextProvider extends InjectorBeanProvider {
     default <A extends Action<O>, O> O call(Class<A> action) {

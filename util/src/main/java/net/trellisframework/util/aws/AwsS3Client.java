@@ -1,20 +1,29 @@
 package net.trellisframework.util.aws;
 
-import com.amazonaws.HttpMethod;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.*;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.HttpMethod;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -34,75 +43,134 @@ public class AwsS3Client {
     }
 
     public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AmazonS3 client = getClient(properties);
-        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(properties.getKey(), key, method).withExpiration(Date.from(Instant.now().plus(expireDuration, expireDurationUnit)));
-        if (StringUtils.isNotBlank(downloadFileName)) {
-        ResponseHeaderOverrides overrides = new ResponseHeaderOverrides();
-        overrides.setContentDisposition("attachment; filename=\"" + downloadFileName + "\"");
-        request.setResponseHeaders(overrides);
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property = getProperties(bucket);
+        try (S3Presigner presigner = getPresigner(property)) {
+            Instant expiration = Instant.now().plus(expireDuration, expireDurationUnit);
+            Duration duration = Duration.between(Instant.now(), expiration);
+            if (method == HttpMethod.GET) {
+                GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder().bucket(bucket).key(key);
+                if (downloadFileName != null)
+                    requestBuilder.responseContentDisposition("attachment; filename=\"" + downloadFileName + "\"");
+                PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(GetObjectPresignRequest.builder().signatureDuration(duration).getObjectRequest(requestBuilder.build()).build());
+                return presignedRequest.url().toString();
+            } else {
+                PresignedPutObjectRequest presignedRequest = presigner.presignPutObject(PutObjectPresignRequest.builder().signatureDuration(duration).putObjectRequest(PutObjectRequest.builder().bucket(bucket).key(key).build()).build());
+                return presignedRequest.url().toString();
+            }
         }
-        return client.generatePresignedUrl(request).toString();
     }
 
     public static String getPublicUrl(String bucket, String key) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AmazonS3 client = getClient(properties);
-        client.setObjectAcl(bucket, key, CannedAccessControlList.PublicRead);
-        return client.getUrl(bucket, key).toString();
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property = getProperties(bucket);
+        try (S3Client client = getClient(property)) {
+            client.putObjectAcl(PutObjectAclRequest.builder().bucket(bucket).key(key).acl(ObjectCannedACL.PUBLIC_READ)
+                    .build());
+            return client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(key).build()).toString();
+        }
     }
 
     public static String upload(String bucket, String key, File file, boolean override) {
-        return upload(bucket, key, file, override, CannedAccessControlList.Private);
+        return upload(bucket, key, file, override, ObjectCannedACL.PRIVATE);
     }
 
-    public static String upload(String bucket, String key, File file, boolean override, CannedAccessControlList cannedAcl) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AmazonS3 client = getClient(properties);
-        if (!override && client.doesObjectExist(properties.getKey(), key)) {
-            throw new ConflictException(Messages.FILE_ALREADY_EXIST);
-        } else {
-            client.putObject(new PutObjectRequest(bucket, key, file).withCannedAcl(cannedAcl));
+    public static String upload(String bucket, String key, File file, boolean override, ObjectCannedACL cannedAcl) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property = getProperties(bucket);
+        try (S3Client client = getClient(property)) {
+            if (!override) {
+                try {
+                    client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+                    throw new ConflictException(Messages.FILE_ALREADY_EXIST);
+                } catch (NoSuchKeyException ignored) {
+                }
+            }
+            client.putObject(PutObjectRequest.builder().bucket(bucket).key(key).acl(cannedAcl).build(), RequestBody.fromFile(file));
             return key;
         }
     }
 
     public static void download(String bucket, String key, File file) throws NotFoundException {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AmazonS3 client = getClient(properties);
-        if (!client.doesObjectExist(properties.getKey(), key))
-            throw new NotFoundException(Messages.FILE_NOT_FOUND);
-        client.getObject(new GetObjectRequest(bucket, key), file);
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property = getProperties(bucket);
+        try (S3Client client = getClient(property)) {
+            try {
+                client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+            } catch (NoSuchKeyException e) {
+                throw new NotFoundException(Messages.FILE_NOT_FOUND);
+            }
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build()).transferTo(fos);
+            } catch (IOException e) {
+                throw new NotFoundException(Messages.FILE_NOT_FOUND);
+            }
+        }
     }
 
     public static List<S3Object> browse(String bucket, String folder, Integer page, Integer size) throws NotFoundException {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AmazonS3 client = getClient(properties);
-        List<S3Object> s3Objects = new ArrayList<>();
-        ObjectListing objectListing;
-        String prefix = Optional.ofNullable(folder).orElse("").isEmpty() ? null : folder;
-        int startItem = (page - 1) * size;
-        int endItem = startItem + size;
-        if (prefix == null) {
-            objectListing = client.listObjects(bucket);
-        } else {
-            objectListing = client.listObjects(bucket, prefix);
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property = getProperties(bucket);
+        try (S3Client client = getClient(property)) {
+            List<S3Object> s3Objects = new ArrayList<>();
+            String prefix = Optional.ofNullable(folder).orElse("").isEmpty() ? null : folder;
+            ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder().bucket(bucket).maxKeys(size);
+            if (prefix != null)
+                requestBuilder.prefix(prefix);
+            String continuationToken = null;
+            for (int currentPage = 1; currentPage < page; currentPage++) {
+                Optional.ofNullable(continuationToken).ifPresent(requestBuilder::continuationToken);
+                ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+                if (!response.isTruncated()) {
+                    return s3Objects;
+                }
+                continuationToken = response.nextContinuationToken();
+            }
+            Optional.ofNullable(continuationToken).ifPresent(requestBuilder::continuationToken);
+            ListObjectsV2Response response = client.listObjectsV2(requestBuilder.build());
+            List<software.amazon.awssdk.services.s3.model.S3Object> contents = response.contents();
+            if (contents != null) {
+                for (software.amazon.awssdk.services.s3.model.S3Object s3ObjectSummary : contents) {
+                    s3Objects.add(new S3Object(s3ObjectSummary));
+                }
+            }
+
+            return s3Objects;
         }
-        for (int i = startItem; i < Math.min(endItem, objectListing.getMaxKeys()) && objectListing.isTruncated(); i++) {
-            S3Object s3Object = new S3Object(objectListing.getObjectSummaries().get(i));
-            s3Objects.add(s3Object);
-        }
-        return s3Objects;
     }
 
-    private static AmazonS3 getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
-        AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard()
-                .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).withPathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false));
-        Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
-                x -> builder.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint(), Optional.ofNullable(property.getValue().getRegion()).map(Regions::getName).orElse(null))),
-                () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(builder::withRegion)
-        );
+    private static S3Client getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
+        AwsS3ClientProperties.S3PropertiesDefinition props = property.getValue();
+        S3ClientBuilder builder = S3Client.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())));
+
+        if (Optional.ofNullable(props.getPathStyle()).orElse(false))
+            builder.forcePathStyle(true);
+
+
+        if (props.getEndpoint() != null) {
+            String endpoint = props.getEndpoint();
+            if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+                endpoint = Optional.ofNullable(props.getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + endpoint;
+                endpoint = "https://" + endpoint;
+            }
+            builder.endpointOverride(URI.create(endpoint));
+        }
+        if (props.getRegion() != null) {
+            builder.region(Region.of(props.getRegion()));
+        }
         return builder.build();
     }
 
+    private static S3Presigner getPresigner(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
+        AwsS3ClientProperties.S3PropertiesDefinition props = property.getValue();
+        var builder = S3Presigner.builder().credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())));
+        if (props.getEndpoint() != null) {
+            String endpoint = props.getEndpoint();
+            if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+                endpoint = Optional.ofNullable(props.getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + endpoint;
+                endpoint = "https://" + endpoint;
+            }
+            builder.endpointOverride(URI.create(endpoint));
+        }
+        if (props.getRegion() != null) {
+            builder.region(Region.of(props.getRegion()));
+        }
+        return builder.build();
+    }
 }

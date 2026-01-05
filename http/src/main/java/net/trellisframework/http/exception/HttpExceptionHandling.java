@@ -1,8 +1,6 @@
 package net.trellisframework.http.exception;
 
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -19,8 +17,10 @@ import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
@@ -194,19 +194,13 @@ public class HttpExceptionHandling {
     }
 
     private ResponseEntity<Object> extractMessage(String message, HttpStatus defaultStatus, HttpServletRequest req) {
-        HttpException httpException = new HttpException(message, Optional.ofNullable(defaultStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR)) ;
+        HttpException httpException = new HttpException(message, Optional.ofNullable(defaultStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR));
         return handleException(httpException, httpException.getHttpStatus(), req);
     }
 
     private static <T> T toObject(String value, Class<T> valueType) {
-        try {
-            ObjectMapper Obj = new ObjectMapper();
-            Obj.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            return Obj.readValue(value, valueType);
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-            return null;
-        }
+        ObjectMapper Obj = JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).build();
+        return Obj.readValue(value, valueType);
     }
 
 }

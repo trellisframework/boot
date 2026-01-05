@@ -6,7 +6,7 @@ import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.oauth.resource.keycloak.constant.Messages;
 import net.trellisframework.oauth.resource.keycloak.action.FindTenantByIdAction;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
+import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationManagerResolver;

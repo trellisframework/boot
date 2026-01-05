@@ -11,7 +11,7 @@
     <artifactId>cache-redis</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <jedis.version>4.1.1</jedis.version>
+        <jedis.version>7.2.0</jedis.version>
         <redisson.version>3.43.0</redisson.version>
     </properties>
     <dependencies>
@@ -23,7 +23,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
-            <version>${spring.boot.version}</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>

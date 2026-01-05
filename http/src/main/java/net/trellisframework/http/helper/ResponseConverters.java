@@ -1,9 +1,9 @@
 package net.trellisframework.http.helper;
 
-import com.fasterxml.jackson.databind.*;
 import net.trellisframework.core.log.Logger;
 import okhttp3.ResponseBody;
 import retrofit2.Converter;
+import tools.jackson.databind.ObjectReader;
 
 import java.io.IOException;
 

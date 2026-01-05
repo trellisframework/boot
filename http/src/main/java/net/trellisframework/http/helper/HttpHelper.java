@@ -1,9 +1,5 @@
 package net.trellisframework.http.helper;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.core.message.Messages;
 import net.trellisframework.http.exception.HttpErrorMessage;
@@ -20,6 +16,11 @@ import retrofit2.Call;
 import retrofit2.Converter;
 import retrofit2.Response;
 import retrofit2.Retrofit;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.Proxy;
@@ -227,10 +228,11 @@ public class HttpHelper {
 
     private static ObjectMapper getMapper() {
         if (mapper == null) {
-            mapper = new ObjectMapper();
-            mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-            mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-            mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+            mapper = JsonMapper.builder()
+                    .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+                    .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                    .build();
         }
         return mapper;
     }
@@ -238,7 +240,7 @@ public class HttpHelper {
     static <T> T fromJson(String value, Class<T> valueType) {
         try {
             return getMapper().readValue(value, valueType);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Logger.error("JsonParseException", e.getMessage());
             return null;
         }
@@ -247,7 +249,7 @@ public class HttpHelper {
     static <T> String toJson(T value) {
         try {
             return getMapper().writeValueAsString(value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Logger.error("JsonParseException", e.getMessage());
             return value.toString();
         }

@@ -11,7 +11,7 @@
     <artifactId>http</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <retrofit.version>2.11.0</retrofit.version>
+        <retrofit.version>3.0.0</retrofit.version>
     </properties>
     <dependencies>
         <dependency>
@@ -22,7 +22,6 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-web</artifactId>
-                <version>${spring.boot.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.springframework.boot</groupId>

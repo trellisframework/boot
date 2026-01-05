@@ -14,6 +14,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.core.data.repository.GenericRepository;
+import net.trellisframework.data.core.expression.BooleanBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -101,6 +102,17 @@ public interface GenericJpaRepository<TEntity, ID> extends GenericRepository, Jp
 
     default TEntity upsert(EntityPath<TEntity> entityPath, BooleanExpression condition, Function<TEntity, TEntity> update, Supplier<TEntity> insert) {
         TEntity existing = getFactory().selectFrom(entityPath).where(condition).fetchOne();
+        if (existing != null) {
+            TEntity updated = update.apply(existing);
+            return save(updated);
+        } else {
+            TEntity entity = insert.get();
+            return save(entity);
+        }
+    }
+
+    default TEntity upsert(EntityPath<TEntity> entityPath, BooleanBuilder condition, Function<TEntity, TEntity> update, Supplier<TEntity> insert) {
+        TEntity existing = select(entityPath).from(entityPath).where(condition).fetchOne();
         if (existing != null) {
             TEntity updated = update.apply(existing);
             return save(updated);

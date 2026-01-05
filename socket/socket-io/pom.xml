@@ -11,7 +11,7 @@
     <artifactId>socket-io</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <netty.version>2.0.2</netty.version>
+        <netty.version>2.0.13</netty.version>
     </properties>
     <dependencies>
         <dependency>
@@ -22,7 +22,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
-            <version>${spring.boot.version}</version>
         </dependency>
         <dependency>
             <groupId>com.corundumstudio.socketio</groupId>

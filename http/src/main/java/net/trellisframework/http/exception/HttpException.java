@@ -1,7 +1,5 @@
 package net.trellisframework.http.exception;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import net.trellisframework.core.message.MessageHandler;
 import okhttp3.Protocol;
 import okhttp3.internal.http.RealResponseBody;
@@ -12,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import retrofit2.Response;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -74,9 +73,8 @@ public class HttpException extends retrofit2.HttpException {
 
     protected String toString(Object value) {
         try {
-            ObjectMapper Obj = new ObjectMapper();
-            return Obj.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+            return JsonMapper.builder().build().writeValueAsString(value);
+        } catch (Exception e) {
             return "";
         }
     }

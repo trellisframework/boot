@@ -2,7 +2,7 @@ package net.trellisframework.core.application;
 
 import net.trellisframework.core.config.ProductionPropertiesDefinition;
 import org.springframework.beans.BeansException;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;

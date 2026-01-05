@@ -12,7 +12,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,15 +35,19 @@ public class SpringSecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, MultiTenancyAuthenticationManagerIssuerResolver resolver) throws Exception {
         List<RouteDefinition> routes = properties.getRoutes();
-        for (RouteDefinition route : routes) {
-            if (route.isIgnore())
-                http.authorizeHttpRequests(requests -> requests.requestMatchers(new AntPathRequestMatcher(route.getAntPattern(), Optional.ofNullable(route.getMethod()).map(HttpMethod::name).orElse(null))).permitAll());
-            else
-                http.authorizeHttpRequests(requests -> requests.requestMatchers(new AntPathRequestMatcher(route.getAntPattern(), Optional.ofNullable(route.getMethod()).map(HttpMethod::name).orElse(null))).hasAnyAuthority(route.getRoles()));
-        }
-        return http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(x -> x.anyRequest().authenticated()).
-                oauth2ResourceServer(resource -> resource.authenticationManagerResolver(resolver))
-                .sessionManagement(manager -> manager.sessionCreationPolicy(STATELESS)).build();
+        return http.csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(requests -> {
+                    for (RouteDefinition route : routes) {
+                        String method = Optional.ofNullable(route.getMethod()).map(HttpMethod::name).orElse(null);
+                        var matcher = method != null ? requests.requestMatchers(method, route.getAntPattern()) : requests.requestMatchers(route.getAntPattern());
+                        if (route.isIgnore()) matcher.permitAll();
+                        else matcher.hasAnyAuthority(route.getRoles());
+                    }
+                    requests.anyRequest().authenticated();
+                })
+                .oauth2ResourceServer(resource -> resource.authenticationManagerResolver(resolver))
+                .sessionManagement(manager -> manager.sessionCreationPolicy(STATELESS))
+                .build();
     }
 
     @Bean

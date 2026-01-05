@@ -4,7 +4,7 @@ import net.trellisframework.context.payload.Principle;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.oauth.resource.keycloak.constant.KeycloakClaimNames;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
+import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoders;

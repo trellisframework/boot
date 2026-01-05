@@ -9,8 +9,8 @@
         <version>0.0.0</version>
     </parent>
     <properties>
-        <grpc.version>1.69.0</grpc.version>
-        <google.guava.version>33.4.0-jre</google.guava.version>
+        <grpc.version>1.78.0</grpc.version>
+        <google.guava.version>33.5.0-jre</google.guava.version>
     </properties>
     <artifactId>grpc</artifactId>
     <packaging>pom</packaging>
@@ -26,8 +26,8 @@
         </dependency>
         <dependency>
             <groupId>org.apache.tomcat</groupId>
-            <artifactId>annotations-api</artifactId>
-            <version>6.0.53</version>
+            <artifactId>tomcat-annotations-api</artifactId>
+            <version>11.0.15</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
