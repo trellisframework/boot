@@ -39,7 +39,7 @@ public class ElasticsearchConfig {
     @SneakyThrows
     public SirenElasticsearchClient elasticsearchClient() {
         int ConnectionTimeout = Optional.ofNullable(properties.getConnectionTimeout()).map(Duration::toMillis).map(Long::intValue).orElse(300000);
-        int socketTimeout = Optional.ofNullable(properties.getConnectionTimeout()).map(Duration::toMillis).map(Long::intValue).orElse(300000);
+        int socketTimeout = Optional.ofNullable(properties.getSocketTimeout()).map(Duration::toMillis).map(Long::intValue).orElse(300000);
         final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getUsername(), properties.getPassword()));
         String uri = properties.getUris().stream().findFirst().orElseThrow(() -> new NotFoundException(Messages.ELASTIC_CONFIG_NOT_FOUND));
