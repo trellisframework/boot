@@ -3,9 +3,7 @@ package net.trellisframework.ui.web.configuration;
 import net.trellisframework.context.validator.FluentValidatorFactoryBean;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.boot.convert.ApplicationConversionService;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.validation.Validator;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -18,8 +16,6 @@ public class AppWebMvcConfigurer implements WebMvcConfigurer {
         ApplicationConversionService.configure(registry);
     }
 
-    @Primary
-    @Bean
     @Override
     public Validator getValidator() {
         return new FluentValidatorFactoryBean();
