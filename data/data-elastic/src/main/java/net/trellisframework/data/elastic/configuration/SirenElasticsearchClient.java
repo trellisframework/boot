@@ -92,9 +92,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 if (request.analyzer() != null) {
                     params.put("analyzer", request.analyzer());
                 }
-                if (request.maxConcurrentShardRequests() != null) {
-                    params.put("max_concurrent_shard_requests", String.valueOf(request.maxConcurrentShardRequests()));
-                }
                 if (request.allowPartialSearchResults() != null) {
                     params.put("allow_partial_search_results", String.valueOf(request.allowPartialSearchResults()));
                 }
@@ -177,9 +174,6 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
                 }
                 if (request.preFilterShardSize() != null) {
                     params.put("pre_filter_shard_size", String.valueOf(request.preFilterShardSize()));
-                }
-                if (request.maxConcurrentShardRequests() != null) {
-                    params.put("max_concurrent_shard_requests", String.valueOf(request.maxConcurrentShardRequests()));
                 }
                 if (ApiTypeHelper.isDefined(request.expandWildcards())) {
                     params.put("expand_wildcards", request.expandWildcards().stream().map(ExpandWildcard::jsonValue).collect(Collectors.joining(",")));
