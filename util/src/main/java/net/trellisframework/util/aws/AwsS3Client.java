@@ -4,7 +4,6 @@ import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpMethod;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -26,7 +25,10 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class AwsS3Client {
 
@@ -136,41 +138,43 @@ public class AwsS3Client {
 
     private static S3Client getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         AwsS3ClientProperties.S3PropertiesDefinition props = property.getValue();
+        String region = region(props.getRegion());
         S3ClientBuilder builder = S3Client.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())));
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())))
+                .region(Region.of(region));
 
         if (Optional.ofNullable(props.getPathStyle()).orElse(false))
             builder.forcePathStyle(true);
 
-
         if (props.getEndpoint() != null) {
             String endpoint = props.getEndpoint();
             if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
-                endpoint = Optional.ofNullable(props.getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + endpoint;
+                endpoint = region + "." + endpoint;
                 endpoint = "https://" + endpoint;
             }
             builder.endpointOverride(URI.create(endpoint));
-        }
-        if (props.getRegion() != null) {
-            builder.region(Region.of(props.getRegion()));
         }
         return builder.build();
     }
 
     private static S3Presigner getPresigner(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         AwsS3ClientProperties.S3PropertiesDefinition props = property.getValue();
-        var builder = S3Presigner.builder().credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())));
+        String region = region(props.getRegion());
+        var builder = S3Presigner.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getCredential().getAccessKey(), props.getCredential().getSecretKey())))
+                .region(Region.of(region));
         if (props.getEndpoint() != null) {
             String endpoint = props.getEndpoint();
             if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
-                endpoint = Optional.ofNullable(props.getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + endpoint;
+                endpoint = region + "." + endpoint;
                 endpoint = "https://" + endpoint;
             }
             builder.endpointOverride(URI.create(endpoint));
         }
-        if (props.getRegion() != null) {
-            builder.region(Region.of(props.getRegion()));
-        }
         return builder.build();
+    }
+
+    private static String region(String region) {
+        return Optional.ofNullable(region).map(x -> x.replace('_', '-')).orElse( "us-east-1");
     }
 }
