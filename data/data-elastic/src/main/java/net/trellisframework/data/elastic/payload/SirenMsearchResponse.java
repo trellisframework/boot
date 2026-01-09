@@ -19,7 +19,7 @@ public class SirenMsearchResponse<TDocument> extends MultiSearchResult<TDocument
         return fn.apply(new Builder<>()).build();
     }
 
-    public static class Builder<TDocument> extends MultiSearchResult.AbstractBuilder<TDocument, Builder<TDocument>> implements ObjectBuilder<SirenMsearchResponse<TDocument>> {
+    public static class Builder<TDocument> extends AbstractBuilder<TDocument, Builder<TDocument>> implements ObjectBuilder<SirenMsearchResponse<TDocument>> {
         @Override
         protected Builder<TDocument> self() {
             return this;
@@ -36,7 +36,7 @@ public class SirenMsearchResponse<TDocument> extends MultiSearchResult<TDocument
         return ObjectBuilderDeserializer.createForObject((Supplier<Builder<TDocument>>) Builder::new, op -> SirenMsearchResponse.setupMsearchResponseDeserializer(op, tDocumentDeserializer));
     }
 
-    public static final JsonpDeserializer<SirenMsearchResponse<Object>> _DESERIALIZER = JsonpDeserializer.lazy(() -> createMsearchResponseDeserializer(new NamedDeserializer<>("co.elastic.clients:Deserializer:_global.msearch.TDocument")));
+    public static final JsonpDeserializer<SirenMsearchResponse<Object>> _DESERIALIZER = JsonpDeserializer.lazy(() -> createMsearchResponseDeserializer(new NamedDeserializer<>("co.elastic.clients:Deserializer:_global.msearch.Response.TDocument")));
 
     protected static <TDocument> void setupMsearchResponseDeserializer(ObjectDeserializer<Builder<TDocument>> op, JsonpDeserializer<TDocument> tDocumentDeserializer) {
         MultiSearchResult.setupMultiSearchResultDeserializer(op, tDocumentDeserializer);

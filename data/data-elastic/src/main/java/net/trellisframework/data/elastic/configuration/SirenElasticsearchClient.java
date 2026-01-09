@@ -212,7 +212,7 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
 
     public <TDocument> SearchResponse<TDocument> sirenSearch(SearchRequest request, Class<TDocument> tDocumentClass) throws IOException, ElasticsearchException {
         @SuppressWarnings("unchecked") JsonEndpoint<SearchRequest, SearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<SearchRequest, SearchResponse<TDocument>, ErrorResponse>) _SEARCH_ENDPOINT;
-        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.search.TDocument", getDeserializer(tDocumentClass));
+        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.search.Response.TDocument", getDeserializer(tDocumentClass));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
@@ -222,14 +222,14 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
 
     public <TDocument> SearchResponse<TDocument> sirenSearch(SearchRequest request, Type tDocumentType) throws IOException, ElasticsearchException {
         @SuppressWarnings("unchecked") JsonEndpoint<SearchRequest, SearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<SearchRequest, SearchResponse<TDocument>, ErrorResponse>) _SEARCH_ENDPOINT;
-        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.search.TDocument", getDeserializer(tDocumentType));
+        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.search.Response.TDocument", getDeserializer(tDocumentType));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
 
     public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Class<TDocument> tDocumentClass) throws IOException, ElasticsearchException {
         @SuppressWarnings("unchecked") JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _M_SEARCH_ENDPOINT;
-        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.TDocument", getDeserializer(tDocumentClass));
+        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.Response.TDocument", getDeserializer(tDocumentClass));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
@@ -239,7 +239,7 @@ public class SirenElasticsearchClient extends ElasticsearchClient {
 
     public <TDocument> SirenMsearchResponse<TDocument> sirenMSearch(MsearchRequest request, Type tDocumentType) throws IOException, ElasticsearchException {
         @SuppressWarnings("unchecked") JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse> endpoint = (JsonEndpoint<MsearchRequest, SirenMsearchResponse<TDocument>, ErrorResponse>) _M_SEARCH_ENDPOINT;
-        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.TDocument", getDeserializer(tDocumentType));
+        endpoint = new EndpointWithResponseMapperAttr<>(endpoint, "co.elastic.clients:Deserializer:_global.msearch.Response.TDocument", getDeserializer(tDocumentType));
         return this.transport.performRequest(request, endpoint, this.transportOptions);
     }
 
