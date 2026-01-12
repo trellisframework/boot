@@ -1,8 +1,8 @@
 package net.trellisframework.workflow.temporal.provider;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowException;
+import io.temporal.client.WorkflowOptions;
 import io.temporal.client.WorkflowStub;
 import io.temporal.common.SearchAttributeKey;
 import io.temporal.common.SearchAttributes;
@@ -13,21 +13,25 @@ import net.trellisframework.context.action.*;
 import net.trellisframework.context.provider.ActionContextProvider;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.redis.semaphore.RedisSemaphore;
+import net.trellisframework.util.duration.DurationParser;
+import net.trellisframework.util.environment.EnvironmentUtil;
 import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Async;
 import net.trellisframework.workflow.temporal.config.WorkflowProperties;
-import net.trellisframework.util.duration.DurationParser;
 import net.trellisframework.workflow.temporal.payload.Fallback;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
+import net.trellisframework.workflow.temporal.util.TypeResolver;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 @SuppressWarnings("unchecked")
 public interface Workflow extends ActionContextProvider {
@@ -164,13 +168,10 @@ public interface Workflow extends ActionContextProvider {
     private <O> O doCall(Class<?> action, WorkflowOption<O> option, Fallback<O> fallback, boolean async, Object... args) {
         WorkflowClient client = ApplicationContextProvider.context.getBean(WorkflowClient.class);
         WorkflowProperties properties = ApplicationContextProvider.context.getBean(WorkflowProperties.class);
-
         boolean fireAndForget = isFireAndForget(async, fallback);
-
         String concurrencyKey = (option != null && option.hasConcurrency()) ? option.getConcurrencyKey() : null;
         int concurrencyLimit = (option != null) ? option.getConcurrencyLimit() : 0;
         boolean acquired = false;
-
         try {
             if (concurrencyKey != null && !fireAndForget) {
                 RedisSemaphore.acquire(concurrencyKey, concurrencyLimit);
@@ -180,7 +181,7 @@ public interface Workflow extends ActionContextProvider {
             Object[] allArgs = prepareArgs(action, option, args);
             stub.start(allArgs);
             if (fireAndForget) {
-                return fallback != null && fallback.hasValue() ? fallback.getValue().get() : null;
+                return Optional.ofNullable(fallback).filter(Fallback::hasValue).map(Fallback::getValue).map(Supplier::get).orElse(null);
             }
             return waitForResult(stub, action, fallback);
         } finally {
@@ -195,7 +196,7 @@ public interface Workflow extends ActionContextProvider {
         if (timeout == null) {
             try {
                 Object result = stub.getResult(Object.class);
-                return convert(result, getReturnType(action));
+                return TypeResolver.convert(result, getReturnType(action));
             } catch (WorkflowException e) {
                 throw unwrapException(e);
             }
@@ -203,7 +204,7 @@ public interface Workflow extends ActionContextProvider {
         if (fallback.hasValue()) {
             try {
                 Object result = stub.getResult(timeout.toMillis(), TimeUnit.MILLISECONDS, Object.class);
-                return convert(result, getReturnType(action));
+                return TypeResolver.convert(result, getReturnType(action));
             } catch (TimeoutException e) {
                 return fallback.getValue().get();
             } catch (WorkflowException e) {
@@ -249,30 +250,18 @@ public interface Workflow extends ActionContextProvider {
     }
 
     private WorkflowStub createStub(WorkflowClient client, WorkflowProperties properties, Class<?> action, WorkflowOption<?> option) {
-        String taskQueue = StringUtils.defaultIfBlank(properties.getTaskQueue(),
-                ApplicationContextProvider.context.getEnvironment().getProperty("spring.application.name", "default"));
-
+        String taskQueue = StringUtils.defaultIfBlank(properties.getTaskQueue(), EnvironmentUtil.getPropertyValue("spring.application.name", "default"));
         var workflowAnnotation = action.getAnnotation(net.trellisframework.workflow.temporal.annotation.Workflow.class);
-        Duration timeout = workflowAnnotation != null
-                ? DurationParser.parse(workflowAnnotation.timeout())
-                : Duration.ofHours(24);
-
-        io.temporal.client.WorkflowOptions.Builder optionsBuilder = io.temporal.client.WorkflowOptions.newBuilder()
-                .setTaskQueue(taskQueue)
-                .setWorkflowId(action.getSimpleName() + "-" + UUID.randomUUID())
-                .setWorkflowExecutionTimeout(timeout);
-
+        Duration timeout = Optional.ofNullable(workflowAnnotation).map(x -> DurationParser.parse(x.timeout())).orElse(Duration.ofHours(24));
+        WorkflowOptions.Builder options = io.temporal.client.WorkflowOptions.newBuilder().setTaskQueue(taskQueue).setWorkflowId(action.getSimpleName() + "-" + UUID.randomUUID()).setWorkflowExecutionTimeout(timeout);
         if (option != null && option.hasPriority()) {
-            optionsBuilder.setPriority(option.getPriority());
+            options.setPriority(option.getPriority());
         }
         if (option != null && option.hasConcurrency()) {
-            SearchAttributes searchAttributes = SearchAttributes.newBuilder()
-                    .set(SearchAttributeKey.forKeyword(DynamicWorkflowAction.SEARCH_ATTR_CONCURRENCY_KEY), option.getConcurrencyKey())
-                    .build();
-            optionsBuilder.setTypedSearchAttributes(searchAttributes);
+            SearchAttributes searchAttributes = SearchAttributes.newBuilder().set(SearchAttributeKey.forKeyword(DynamicWorkflowAction.SEARCH_ATTR_CONCURRENCY_KEY), option.getConcurrencyKey()).build();
+            options.setTypedSearchAttributes(searchAttributes);
         }
-
-        return client.newUntypedWorkflowStub("DynamicWorkflowAction", optionsBuilder.build());
+        return client.newUntypedWorkflowStub("DynamicWorkflowAction", options.build());
     }
 
     private Object[] prepareArgs(Class<?> action, WorkflowOption<?> option, Object[] args) {
@@ -280,17 +269,6 @@ public interface Workflow extends ActionContextProvider {
         allArgs[0] = action.getName();
         System.arraycopy(args, 0, allArgs, 1, args.length);
         return allArgs;
-    }
-
-    private <O> O convert(Object result, Class<?> targetType) {
-        if (result == null || targetType == Void.class || targetType == void.class) {
-            return null;
-        }
-        if (targetType.isInstance(result)) {
-            return (O) result;
-        }
-        ObjectMapper mapper = ApplicationContextProvider.context.getBean(ObjectMapper.class);
-        return (O) mapper.convertValue(result, targetType);
     }
 
     private Class<?> getReturnType(Class<?> actionClass) {

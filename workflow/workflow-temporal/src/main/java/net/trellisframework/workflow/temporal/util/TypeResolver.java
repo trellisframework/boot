@@ -1,7 +1,6 @@
 package net.trellisframework.workflow.temporal.util;
 
 import net.trellisframework.util.json.JsonUtil;
-import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -26,10 +25,13 @@ public final class TypeResolver {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T convert(Object value, Class<T> targetType) {
-        if (value == null || targetType.isInstance(value)) {
+    public static <T> T convert(Object value, Class<?> targetType) {
+        if (value == null || targetType == Void.class || targetType == void.class || targetType.isInstance(value)) {
             return (T) value;
         }
-        return JsonUtil.toObject(value, targetType);
+        return (T) JsonUtil.toObject(value, targetType);
     }
+
 }
+
+

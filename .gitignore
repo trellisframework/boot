@@ -20,6 +20,9 @@
 .idea/**/uiDesigner.xml
 .idea/
 
+.claude/
+.claude/**
+
 # Gradle:
 .idea/**/gradle.xml
 .idea/**/libraries
@@ -109,3 +112,4 @@ buildNumber.properties
 .direnv
 .classpath
 .factorypath
+/.claude/

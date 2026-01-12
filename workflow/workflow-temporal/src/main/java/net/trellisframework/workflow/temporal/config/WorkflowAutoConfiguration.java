@@ -55,8 +55,7 @@ public class WorkflowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public WorkflowServiceStubs workflowServiceStubs(WorkflowProperties properties) {
-        WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(
-                WorkflowServiceStubsOptions.newBuilder().setTarget(properties.getTarget()).build());
+        WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder().setTarget(properties.getTarget()).build());
         String namespace = getNamespace(properties);
         ensureNamespaceExists(stubs, namespace);
         ensureSearchAttributeExists(stubs, namespace);
@@ -66,8 +65,7 @@ public class WorkflowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public WorkflowClient workflowClient(WorkflowServiceStubs stubs, WorkflowProperties properties) {
-        return WorkflowClient.newInstance(stubs,
-                WorkflowClientOptions.newBuilder().setNamespace(getNamespace(properties)).build());
+        return WorkflowClient.newInstance(stubs, WorkflowClientOptions.newBuilder().setNamespace(getNamespace(properties)).build());
     }
 
     @Bean
@@ -89,12 +87,7 @@ public class WorkflowAutoConfiguration {
     private void ensureNamespaceExists(WorkflowServiceStubs stubs, String namespace) {
         try {
             var stub = WorkflowServiceGrpc.newBlockingStub(stubs.getRawChannel());
-            stub.registerNamespace(RegisterNamespaceRequest.newBuilder()
-                    .setNamespace(namespace)
-                    .setWorkflowExecutionRetentionPeriod(
-                            com.google.protobuf.Duration.newBuilder()
-                                    .setSeconds(NAMESPACE_RETENTION_DAYS * 24 * 60 * 60).build())
-                    .build());
+            stub.registerNamespace(RegisterNamespaceRequest.newBuilder().setNamespace(namespace).setWorkflowExecutionRetentionPeriod(com.google.protobuf.Duration.newBuilder().setSeconds(NAMESPACE_RETENTION_DAYS * 24 * 60 * 60).build()).build());
             Logger.info("Temporal", "Created namespace: %s", namespace);
             Threads.sleep(2000);
         } catch (io.grpc.StatusRuntimeException e) {
@@ -108,15 +101,9 @@ public class WorkflowAutoConfiguration {
         for (int attempt = 1; attempt <= 5; attempt++) {
             try {
                 var stub = OperatorServiceGrpc.newBlockingStub(stubs.getRawChannel());
-                var existing = stub.listSearchAttributes(
-                        ListSearchAttributesRequest.newBuilder().setNamespace(namespace).build())
-                        .getCustomAttributesMap();
-
+                var existing = stub.listSearchAttributes(ListSearchAttributesRequest.newBuilder().setNamespace(namespace).build()).getCustomAttributesMap();
                 if (!existing.containsKey(CONCURRENCY_KEY)) {
-                    stub.addSearchAttributes(AddSearchAttributesRequest.newBuilder()
-                            .setNamespace(namespace)
-                            .putSearchAttributes(CONCURRENCY_KEY, IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD)
-                            .build());
+                    stub.addSearchAttributes(AddSearchAttributesRequest.newBuilder().setNamespace(namespace).putSearchAttributes(CONCURRENCY_KEY, IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD).build());
                     Logger.info("Temporal", "Registered search attribute: %s", CONCURRENCY_KEY);
                     Threads.sleep(2000);
                 }
@@ -132,12 +119,10 @@ public class WorkflowAutoConfiguration {
 
         public WorkerInitializer(WorkerFactory factory, String taskQueue, ApplicationContext ctx) {
             Set<String> versions = collectVersions(ctx);
-
-            if (versions.isEmpty()) {
+            if (versions.isEmpty())
                 createWorker(factory, taskQueue, null);
-            } else {
+            else
                 versions.forEach(v -> createWorker(factory, taskQueue, v));
-            }
             factory.start();
         }
 
@@ -146,8 +131,7 @@ public class WorkflowAutoConfiguration {
             Map<String, Object> beans = ctx.getBeansWithAnnotation(Workflow.class);
             for (Object bean : beans.values()) {
                 Workflow annotation = bean.getClass().getAnnotation(Workflow.class);
-                if (annotation != null && !annotation.version().isEmpty()
-                        && !Workflow.DEFAULT_VERSION.equals(annotation.version())) {
+                if (annotation != null && !annotation.version().isEmpty() && !Workflow.DEFAULT_VERSION.equals(annotation.version())) {
                     versions.add(annotation.version());
                 }
             }
@@ -156,18 +140,12 @@ public class WorkflowAutoConfiguration {
 
         private void createWorker(WorkerFactory factory, String taskQueue, String version) {
             WorkerOptions.Builder options = WorkerOptions.newBuilder();
-            if (version != null) {
-                options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder()
-                        .setVersion(new WorkerDeploymentVersion(taskQueue, version))
-                        .setUseVersioning(true)
-                        .setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE)
-                        .build());
-            }
+            if (version != null)
+                options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder().setVersion(new WorkerDeploymentVersion(taskQueue, version)).setUseVersioning(true).setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE).build());
             Worker worker = factory.newWorker(taskQueue, options.build());
             worker.registerWorkflowImplementationTypes(DynamicWorkflowAction.class);
             worker.registerActivitiesImplementations(new DynamicTaskActivity());
-            Logger.info("Temporal", "Worker started on queue: %s%s", taskQueue,
-                    version != null ? ", version: " + version : "");
+            Logger.info("Temporal", "Worker started on queue: %s%s", taskQueue, version != null ? ", version: " + version : "");
         }
     }
 }

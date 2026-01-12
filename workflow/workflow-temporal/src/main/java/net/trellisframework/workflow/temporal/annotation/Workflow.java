@@ -19,6 +19,7 @@ public @interface Workflow {
     String version() default DEFAULT_VERSION;
 
     String DEFAULT_TIMEOUT = "24h";
+
     String DEFAULT_VERSION = "0.0.0";
 
 }

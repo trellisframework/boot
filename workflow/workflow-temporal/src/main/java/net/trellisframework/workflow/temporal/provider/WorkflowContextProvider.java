@@ -21,79 +21,62 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @SuppressWarnings("unchecked")
 public interface WorkflowContextProvider extends ProcessContextProvider {
 
     @Override
     default <TProcess extends Process<O>, O> O call(Class<TProcess> process) {
-        if (WorkflowTask.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName());
-        }
-        if (WorkflowAction.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process);
-            return null;
-        }
+        if (WorkflowTask.class.isAssignableFrom(process))
+            return executeTask(process);
+        if (WorkflowAction.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process);
         return ProcessContextProvider.super.call(process);
     }
 
     @Override
     default <TProcess extends Process1<O, I>, O, I> O call(Class<TProcess> process, I i1) {
-        if (WorkflowTask1.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName(), i1);
-        }
-        if (WorkflowAction1.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process, i1);
-            return null;
-        }
+        if (WorkflowTask1.class.isAssignableFrom(process))
+            return executeTask(process, i1);
+        if (WorkflowAction1.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process, i1);
         return ProcessContextProvider.super.call(process, i1);
     }
 
     @Override
     default <TProcess extends Process2<O, I1, I2>, O, I1, I2> O call(Class<TProcess> process, I1 i1, I2 i2) {
-        if (WorkflowTask2.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName(), i1, i2);
-        }
-        if (WorkflowAction2.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process, i1, i2);
-            return null;
-        }
+        if (WorkflowTask2.class.isAssignableFrom(process))
+            return executeTask(process, i1, i2);
+        if (WorkflowAction2.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process, i1, i2);
         return ProcessContextProvider.super.call(process, i1, i2);
     }
 
     @Override
     default <TProcess extends Process3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3) {
-        if (WorkflowTask3.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName(), i1, i2, i3);
-        }
-        if (WorkflowAction3.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process, i1, i2, i3);
-            return null;
-        }
+        if (WorkflowTask3.class.isAssignableFrom(process))
+            return executeTask(process, i1, i2, i3);
+        if (WorkflowAction3.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process, i1, i2, i3);
         return ProcessContextProvider.super.call(process, i1, i2, i3);
     }
 
     @Override
     default <TProcess extends Process4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3, I4 i4) {
-        if (WorkflowTask4.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName(), i1, i2, i3, i4);
-        }
-        if (WorkflowAction4.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process, i1, i2, i3, i4);
-            return null;
-        }
+        if (WorkflowTask4.class.isAssignableFrom(process))
+            return executeTask(process, i1, i2, i3, i4);
+        if (WorkflowAction4.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process, i1, i2, i3, i4);
         return ProcessContextProvider.super.call(process, i1, i2, i3, i4);
     }
 
     @Override
     default <TProcess extends Process5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5) {
-        if (WorkflowTask5.class.isAssignableFrom(process)) {
-            return executeTask(process, process.getName(), i1, i2, i3, i4, i5);
-        }
-        if (WorkflowAction5.class.isAssignableFrom(process) && isAsync(process)) {
-            startChildWorkflow(process, i1, i2, i3, i4, i5);
-            return null;
-        }
+        if (WorkflowTask5.class.isAssignableFrom(process))
+            return executeTask(process, i1, i2, i3, i4, i5);
+        if (WorkflowAction5.class.isAssignableFrom(process) && isAsync(process))
+            return startChildWorkflow(process, i1, i2, i3, i4, i5);
         return ProcessContextProvider.super.call(process, i1, i2, i3, i4, i5);
     }
 
@@ -125,32 +108,30 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         return clazz.isAnnotationPresent(net.trellisframework.workflow.temporal.annotation.Async.class);
     }
 
-    private <O> O executeTask(Class<?> taskClass, Object... args) {
-        var stub = Workflow.newUntypedActivityStub(buildActivityOptions(taskClass));
-        return (O) stub.execute(taskClass.getSimpleName(), Object.class, args);
+    private Object[] prependClassName(Class<?> clazz, Object... args) {
+        return Stream.concat(Stream.of(clazz.getName()), Arrays.stream(args)).toArray();
     }
 
-    private void startChildWorkflow(Class<?> workflowClass, Object... args) {
+    private <O> O executeTask(Class<?> taskClass, Object... args) {
+        var stub = Workflow.newUntypedActivityStub(buildActivityOptions(taskClass));
+        return (O) stub.execute(taskClass.getSimpleName(), Object.class, prependClassName(taskClass, args));
+    }
+
+    private <O> O startChildWorkflow(Class<?> workflowClass, Object... args) {
         var annotation = workflowClass.getAnnotation(net.trellisframework.workflow.temporal.annotation.Workflow.class);
-        String defaultTimout = net.trellisframework.workflow.temporal.annotation.Workflow.DEFAULT_TIMEOUT;
+        String defaultTimeout = net.trellisframework.workflow.temporal.annotation.Workflow.DEFAULT_TIMEOUT;
         String defaultTaskQueue = Workflow.getInfo().getTaskQueue();
         String taskQueue = annotation != null && !annotation.taskQueue().isBlank() ? annotation.taskQueue() : defaultTaskQueue;
-        Duration timeout = Optional.ofNullable(annotation).map(x -> DurationParser.parse(x.timeout())).orElse(DurationParser.parse(defaultTimout));
-        String workflowId = workflowClass.getSimpleName() + "-" + UUID.randomUUID();
-        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub(
-                "DynamicWorkflowAction",
-                ChildWorkflowOptions.newBuilder()
-                        .setWorkflowId(workflowId)
-                        .setTaskQueue(taskQueue)
-                        .setParentClosePolicy(ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON)
-                        .setWorkflowExecutionTimeout(timeout)
-                        .build()
-        );
-        Object[] allArgs = new Object[args.length + 1];
-        allArgs[0] = workflowClass.getName();
-        System.arraycopy(args, 0, allArgs, 1, args.length);
-        Async.function(() -> stub.execute(Object.class, allArgs));
+        Duration timeout = Optional.ofNullable(annotation).map(x -> DurationParser.parse(x.timeout())).orElse(DurationParser.parse(defaultTimeout));
+        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", ChildWorkflowOptions.newBuilder()
+                .setWorkflowId(workflowClass.getSimpleName() + "-" + UUID.randomUUID())
+                .setTaskQueue(taskQueue)
+                .setParentClosePolicy(ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON)
+                .setWorkflowExecutionTimeout(timeout)
+                .build());
+        Async.function(() -> stub.execute(Object.class, prependClassName(workflowClass, args)));
         stub.getExecution().get();
+        return null;
     }
 
     private ActivityOptions buildActivityOptions(Class<?> taskClass) {

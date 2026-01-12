@@ -52,9 +52,12 @@ public class DynamicTaskActivity implements DynamicActivity {
             case WorkflowTask<?> t -> t.execute();
             case WorkflowTask1 t -> t.execute(arg(args, 1, paramTypes, 0));
             case WorkflowTask2 t -> t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1));
-            case WorkflowTask3 t -> t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2));
-            case WorkflowTask4 t -> t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2), arg(args, 4, paramTypes, 3));
-            case WorkflowTask5 t -> t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2), arg(args, 4, paramTypes, 3), arg(args, 5, paramTypes, 4));
+            case WorkflowTask3 t ->
+                    t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2));
+            case WorkflowTask4 t ->
+                    t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2), arg(args, 4, paramTypes, 3));
+            case WorkflowTask5 t ->
+                    t.execute(arg(args, 1, paramTypes, 0), arg(args, 2, paramTypes, 1), arg(args, 3, paramTypes, 2), arg(args, 4, paramTypes, 3), arg(args, 5, paramTypes, 4));
             default -> throw new IllegalArgumentException("Unknown task type: " + task.getClass().getName());
         };
     }
@@ -63,13 +66,12 @@ public class DynamicTaskActivity implements DynamicActivity {
         return TypeResolver.convert(args.get(argIndex, Object.class), paramTypes[typeIndex]);
     }
 
-    private ScheduledExecutorService startHeartbeat(Class<?> taskClass) {
-        Task annotation = taskClass.getAnnotation(Task.class);
+    private ScheduledExecutorService startHeartbeat(Class<?> clazz) {
+        Task annotation = clazz.getAnnotation(Task.class);
         Duration interval = annotation != null ? DurationParser.parse(annotation.heartbeat()) : Duration.ofSeconds(10);
         ActivityExecutionContext ctx = Activity.getExecutionContext();
-
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "heartbeat-" + taskClass.getSimpleName() + "-" + Thread.currentThread().getId());
+            Thread t = new Thread(r, "heartbeat-" + clazz.getSimpleName() + "-" + Thread.currentThread().getId());
             t.setDaemon(true);
             return t;
         });
@@ -80,7 +82,6 @@ public class DynamicTaskActivity implements DynamicActivity {
             } catch (Exception ignored) {
             }
         }, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
-
         return scheduler;
     }
 
@@ -96,10 +97,7 @@ public class DynamicTaskActivity implements DynamicActivity {
         String message = e instanceof HttpException http ? JsonUtil.toString(http.getErrorMessage()) : e.getMessage();
         int attempt = Activity.getExecutionContext().getInfo().getAttempt();
         Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", attempt, message);
-
-        boolean nonRetryable = retry != null && retry.include().length > 0
-                && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
-
+        boolean nonRetryable = retry != null && retry.include().length > 0 && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
         ApplicationFailure failure = ApplicationFailure.newFailureWithCause(message, e.getClass().getName(), null);
         failure.setNonRetryable(nonRetryable);
         failure.setStackTrace(new StackTraceElement[0]);
