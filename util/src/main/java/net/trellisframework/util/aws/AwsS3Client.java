@@ -115,15 +115,22 @@ public class AwsS3Client {
 
     private static String getUrl(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property, String bucket, String key) {
         if (property.getValue().getEndpoint() != null)
-            return "https://" + Optional.ofNullable(property.getValue().getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint() + "/" + bucket + "/" + key;
+            return getEndpointUrl(property.getValue().getEndpoint(), property.getValue().getRegion()) + "/" + bucket + "/" + key;
         return "https://" + bucket + ".s3." + property.getValue().getRegion() + ".amazonaws.com/" + key;
+    }
+
+    private static String getEndpointUrl(String endpoint, String region) {
+        String regionPrefix = Optional.ofNullable(region).map(r -> r + ".").orElse(StringUtils.EMPTY);
+        if (endpoint.startsWith("http://") || endpoint.startsWith("https://"))
+            return endpoint.contains(regionPrefix) ? endpoint : endpoint.replaceFirst("://", "://" + regionPrefix);
+        return "https://" + regionPrefix + endpoint;
     }
 
     private static S3Client getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         S3ClientBuilder builder = S3Client.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false)).build());
         Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
-                x -> builder.endpointOverride(URI.create("https://" + Optional.ofNullable(property.getValue().getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint())).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
+                x -> builder.endpointOverride(URI.create(getEndpointUrl(x, property.getValue().getRegion()))).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
                 () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(r -> builder.region(Region.of(r)))
         );
         return builder.build();
@@ -133,7 +140,7 @@ public class AwsS3Client {
         S3Presigner.Builder builder = S3Presigner.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false)).build());
         Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
-                x -> builder.endpointOverride(URI.create("https://" + Optional.ofNullable(property.getValue().getRegion()).map(r -> r + ".").orElse(StringUtils.EMPTY) + property.getValue().getEndpoint())).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
+                x -> builder.endpointOverride(URI.create(getEndpointUrl(x, property.getValue().getRegion()))).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
                 () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(r -> builder.region(Region.of(r)))
         );
         return builder.build();
