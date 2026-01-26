@@ -1,6 +1,5 @@
 package net.trellisframework.data.elastic.configuration;
 
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import lombok.SneakyThrows;
 import net.trellisframework.core.application.ApplicationContextProvider;
