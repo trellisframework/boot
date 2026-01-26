@@ -14,11 +14,13 @@ public @interface Workflow {
 
     String taskQueue() default "";
 
-    String timeout() default DEFAULT_TIMEOUT;
+    String executionTimeout() default "";
+
+    String runTimeout() default "";
+
+    String taskTimeout() default "";
 
     String version() default DEFAULT_VERSION;
-
-    String DEFAULT_TIMEOUT = "24h";
 
     String DEFAULT_VERSION = "0.0.0";
 

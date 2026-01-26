@@ -182,6 +182,10 @@ public class Logger {
         log(StandardLevel.ERROR, getFileName(), getMethodName(), identifier, message, params);
     }
 
+    public static void error(String identifier, Throwable t, String message, Object... params) {
+        log(StandardLevel.ERROR, getFileName(), getMethodName(), identifier, String.format(message, params), t);
+    }
+
     public static void error(Runnable runnable, long thresholdMs, String message) {
         error(runnable, thresholdMs, message, new Object[0]);
     }

@@ -1,5 +1,6 @@
 package net.trellisframework.workflow.temporal.action;
 
+import io.temporal.activity.Activity;
 import io.temporal.workflow.Workflow;
 import net.trellisframework.workflow.temporal.provider.WorkflowContextProvider;
 
@@ -24,7 +25,11 @@ public interface BaseWorkflowAction extends WorkflowContextProvider {
     }
 
     default int getAttempt() {
-        return Workflow.getInfo().getAttempt();
+        try {
+            return Activity.getExecutionContext().getInfo().getAttempt();
+        } catch (Exception e) {
+            return Workflow.getInfo().getAttempt();
+        }
     }
 
     default int version(String changeId, int maxVersion) {

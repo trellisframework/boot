@@ -16,7 +16,7 @@ import net.trellisframework.data.redis.semaphore.RedisSemaphore;
 import net.trellisframework.util.duration.DurationParser;
 import net.trellisframework.util.environment.EnvironmentUtil;
 import net.trellisframework.workflow.temporal.action.*;
-import net.trellisframework.workflow.temporal.annotation.Async;
+import net.trellisframework.workflow.temporal.annotation.Workflow;
 import net.trellisframework.workflow.temporal.config.WorkflowProperties;
 import net.trellisframework.workflow.temporal.payload.Fallback;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
@@ -34,12 +34,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 @SuppressWarnings("unchecked")
-public interface Workflow extends ActionContextProvider {
+public interface Workflows extends ActionContextProvider {
 
     @Override
     default <A extends Action<O>, O> O call(Class<A> action) {
         if (WorkflowAction.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action));
+            return doCall(action, null, null);
         }
         return ActionContextProvider.super.call(action);
     }
@@ -47,7 +47,7 @@ public interface Workflow extends ActionContextProvider {
     @Override
     default <A extends Action1<O, I1>, O, I1> O call(Class<A> action, I1 i1) {
         if (WorkflowAction1.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action), i1);
+            return doCall(action, null, null, i1);
         }
         return ActionContextProvider.super.call(action, i1);
     }
@@ -55,7 +55,7 @@ public interface Workflow extends ActionContextProvider {
     @Override
     default <A extends Action2<O, I1, I2>, O, I1, I2> O call(Class<A> action, I1 i1, I2 i2) {
         if (WorkflowAction2.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action), i1, i2);
+            return doCall(action, null, null, i1, i2);
         }
         return ActionContextProvider.super.call(action, i1, i2);
     }
@@ -63,7 +63,7 @@ public interface Workflow extends ActionContextProvider {
     @Override
     default <A extends Action3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<A> action, I1 i1, I2 i2, I3 i3) {
         if (WorkflowAction3.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action), i1, i2, i3);
+            return doCall(action, null, null, i1, i2, i3);
         }
         return ActionContextProvider.super.call(action, i1, i2, i3);
     }
@@ -71,7 +71,7 @@ public interface Workflow extends ActionContextProvider {
     @Override
     default <A extends Action4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<A> action, I1 i1, I2 i2, I3 i3, I4 i4) {
         if (WorkflowAction4.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action), i1, i2, i3, i4);
+            return doCall(action, null, null, i1, i2, i3, i4);
         }
         return ActionContextProvider.super.call(action, i1, i2, i3, i4);
     }
@@ -79,96 +79,91 @@ public interface Workflow extends ActionContextProvider {
     @Override
     default <A extends Action5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<A> action, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5) {
         if (WorkflowAction5.class.isAssignableFrom(action)) {
-            return doCall(action, null, null, isAsync(action), i1, i2, i3, i4, i5);
+            return doCall(action, null, null, i1, i2, i3, i4, i5);
         }
         return ActionContextProvider.super.call(action, i1, i2, i3, i4, i5);
     }
 
     default <TAction extends WorkflowAction<O>, O> O call(Class<TAction> action, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action));
+        return doCall(action, option, null);
     }
 
     default <TAction extends WorkflowAction<O>, O> O call(Class<TAction> action, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action));
+        return doCall(action, null, fallback);
     }
 
     default <TAction extends WorkflowAction<O>, O> O call(Class<TAction> action, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action));
+        return doCall(action, option, fallback);
     }
 
     default <TAction extends WorkflowAction1<O, I>, O, I> O call(Class<TAction> action, I i1, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action), i1);
+        return doCall(action, option, null, i1);
     }
 
     default <TAction extends WorkflowAction1<O, I>, O, I> O call(Class<TAction> action, I i1, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action), i1);
+        return doCall(action, null, fallback, i1);
     }
 
     default <TAction extends WorkflowAction1<O, I>, O, I> O call(Class<TAction> action, I i1, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action), i1);
+        return doCall(action, option, fallback, i1);
     }
 
     default <TAction extends WorkflowAction2<O, I1, I2>, O, I1, I2> O call(Class<TAction> action, I1 i1, I2 i2, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action), i1, i2);
+        return doCall(action, option, null, i1, i2);
     }
 
     default <TAction extends WorkflowAction2<O, I1, I2>, O, I1, I2> O call(Class<TAction> action, I1 i1, I2 i2, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action), i1, i2);
+        return doCall(action, null, fallback, i1, i2);
     }
 
     default <TAction extends WorkflowAction2<O, I1, I2>, O, I1, I2> O call(Class<TAction> action, I1 i1, I2 i2, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action), i1, i2);
+        return doCall(action, option, fallback, i1, i2);
     }
 
     default <TAction extends WorkflowAction3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action), i1, i2, i3);
+        return doCall(action, option, null, i1, i2, i3);
     }
 
     default <TAction extends WorkflowAction3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action), i1, i2, i3);
+        return doCall(action, null, fallback, i1, i2, i3);
     }
 
     default <TAction extends WorkflowAction3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action), i1, i2, i3);
+        return doCall(action, option, fallback, i1, i2, i3);
     }
 
     default <TAction extends WorkflowAction4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action), i1, i2, i3, i4);
+        return doCall(action, option, null, i1, i2, i3, i4);
     }
 
     default <TAction extends WorkflowAction4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action), i1, i2, i3, i4);
+        return doCall(action, null, fallback, i1, i2, i3, i4);
     }
 
     default <TAction extends WorkflowAction4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action), i1, i2, i3, i4);
+        return doCall(action, option, fallback, i1, i2, i3, i4);
     }
 
     default <TAction extends WorkflowAction5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5, WorkflowOption<O> option) {
-        return doCall(action, option, null, isAsync(action), i1, i2, i3, i4, i5);
+        return doCall(action, option, null, i1, i2, i3, i4, i5);
     }
 
     default <TAction extends WorkflowAction5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5, Fallback<O> fallback) {
-        return doCall(action, null, fallback, isAsync(action), i1, i2, i3, i4, i5);
+        return doCall(action, null, fallback, i1, i2, i3, i4, i5);
     }
 
     default <TAction extends WorkflowAction5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<TAction> action, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5, WorkflowOption<O> option, Fallback<O> fallback) {
-        return doCall(action, option, fallback, isAsync(action), i1, i2, i3, i4, i5);
+        return doCall(action, option, fallback, i1, i2, i3, i4, i5);
     }
 
-    private boolean isAsync(Class<?> action) {
-        return action.isAnnotationPresent(Async.class);
-    }
-
-    private boolean isFireAndForget(boolean async, Fallback<?> fallback) {
-        if (async) return true;
+    private boolean isFireAndForget(Fallback<?> fallback) {
         return fallback != null && fallback.getTimeout() != null && fallback.getTimeout().isZero();
     }
 
-    private <O> O doCall(Class<?> action, WorkflowOption<O> option, Fallback<O> fallback, boolean async, Object... args) {
+    private <O> O doCall(Class<?> action, WorkflowOption<O> option, Fallback<O> fallback, Object... args) {
         WorkflowClient client = ApplicationContextProvider.context.getBean(WorkflowClient.class);
         WorkflowProperties properties = ApplicationContextProvider.context.getBean(WorkflowProperties.class);
-        boolean fireAndForget = isFireAndForget(async, fallback);
+        boolean fireAndForget = isFireAndForget(fallback);
         String concurrencyKey = (option != null && option.hasConcurrency()) ? option.getConcurrencyKey() : null;
         int concurrencyLimit = (option != null) ? option.getConcurrencyLimit() : 0;
         boolean acquired = false;
@@ -178,7 +173,7 @@ public interface Workflow extends ActionContextProvider {
                 acquired = true;
             }
             WorkflowStub stub = createStub(client, properties, action, option);
-            Object[] allArgs = prepareArgs(action, option, args);
+            Object[] allArgs = prepareArgs(action, args);
             stub.start(allArgs);
             if (fireAndForget) {
                 return Optional.ofNullable(fallback).filter(Fallback::hasValue).map(Fallback::getValue).map(Supplier::get).orElse(null);
@@ -251,12 +246,13 @@ public interface Workflow extends ActionContextProvider {
 
     private WorkflowStub createStub(WorkflowClient client, WorkflowProperties properties, Class<?> action, WorkflowOption<?> option) {
         String taskQueue = StringUtils.defaultIfBlank(properties.getTaskQueue(), EnvironmentUtil.getPropertyValue("spring.application.name", "default"));
-        var workflowAnnotation = action.getAnnotation(net.trellisframework.workflow.temporal.annotation.Workflow.class);
-        Duration timeout = Optional.ofNullable(workflowAnnotation).map(x -> DurationParser.parse(x.timeout())).orElse(Duration.ofHours(24));
-        WorkflowOptions.Builder options = io.temporal.client.WorkflowOptions.newBuilder().setTaskQueue(taskQueue).setWorkflowId(action.getSimpleName() + "-" + UUID.randomUUID()).setWorkflowExecutionTimeout(timeout);
-        if (option != null && option.hasPriority()) {
-            options.setPriority(option.getPriority());
-        }
+        var annotation = action.getAnnotation(net.trellisframework.workflow.temporal.annotation.Workflow.class);
+        WorkflowOptions.Builder options = io.temporal.client.WorkflowOptions.newBuilder().setTaskQueue(taskQueue).setWorkflowId(Optional.ofNullable(option).map(WorkflowOption::getId).orElse(action.getSimpleName() + "-" + UUID.randomUUID()));
+        Optional.ofNullable(annotation).map(Workflow::executionTimeout).map(DurationParser::parse).ifPresent(options::setWorkflowExecutionTimeout);
+        Optional.ofNullable(annotation).map(Workflow::taskTimeout).map(DurationParser::parse).ifPresent(options::setWorkflowTaskTimeout);
+        Optional.ofNullable(annotation).map(Workflow::runTimeout).map(DurationParser::parse).ifPresent(options::setWorkflowRunTimeout);
+        Optional.ofNullable(option).map(WorkflowOption::getPriority).ifPresent(options::setPriority);
+
         if (option != null && option.hasConcurrency()) {
             SearchAttributes searchAttributes = SearchAttributes.newBuilder().set(SearchAttributeKey.forKeyword(DynamicWorkflowAction.SEARCH_ATTR_CONCURRENCY_KEY), option.getConcurrencyKey()).build();
             options.setTypedSearchAttributes(searchAttributes);
@@ -264,11 +260,11 @@ public interface Workflow extends ActionContextProvider {
         return client.newUntypedWorkflowStub("DynamicWorkflowAction", options.build());
     }
 
-    private Object[] prepareArgs(Class<?> action, WorkflowOption<?> option, Object[] args) {
-        Object[] allArgs = new Object[args.length + 1];
-        allArgs[0] = action.getName();
-        System.arraycopy(args, 0, allArgs, 1, args.length);
-        return allArgs;
+    private Object[] prepareArgs(Class<?> action, Object[] args) {
+        Object[] result = new Object[args.length + 1];
+        result[0] = action.getName();
+        System.arraycopy(args, 0, result, 1, args.length);
+        return result;
     }
 
     private Class<?> getReturnType(Class<?> actionClass) {

@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 
 public class OAuthSecurityContext {
 
-
     public static Principle getPrinciple() {
         Jwt jwt = ((Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal());
         return Optional.ofNullable(jwt).map(OAuthSecurityContext::getPrinciple).orElse(Principle.of());

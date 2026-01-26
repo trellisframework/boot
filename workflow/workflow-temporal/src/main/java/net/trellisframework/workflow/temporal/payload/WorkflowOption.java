@@ -6,11 +6,25 @@ import lombok.Getter;
 
 @Getter
 public class WorkflowOption<O> {
+    private String id;
     private Priority priority;
     private Concurrency concurrency;
 
+    public static <O> WorkflowOption<O> of(String id) {
+        WorkflowOption<O> option = new WorkflowOption<>();
+        option.id = id;
+        return option;
+    }
+
     public static <O> WorkflowOption<O> of(int priority) {
         WorkflowOption<O> option = new WorkflowOption<>();
+        option.priority = Priority.newBuilder().setPriorityKey(Math.max(1, Math.min(5, priority))).build();
+        return option;
+    }
+
+    public static <O> WorkflowOption<O> of(String id, int priority) {
+        WorkflowOption<O> option = new WorkflowOption<>();
+        option.id = id;
         option.priority = Priority.newBuilder().setPriorityKey(Math.max(1, Math.min(5, priority))).build();
         return option;
     }
@@ -21,9 +35,24 @@ public class WorkflowOption<O> {
         return option;
     }
 
+    public static <O> WorkflowOption<O> of(String id, Concurrency concurrency) {
+        WorkflowOption<O> option = new WorkflowOption<>();
+        option.id = id;
+        option.concurrency = concurrency;
+        return option;
+    }
+
     public static <O> WorkflowOption<O> of(int priority, Concurrency concurrency) {
         WorkflowOption<O> option = new WorkflowOption<>();
-        option.priority = Priority.newBuilder().setPriorityKey(Math.max(1, Math.min(5, priority))).build();
+        option.priority = Priority.newBuilder().setPriorityKey(priority).build();
+        option.concurrency = concurrency;
+        return option;
+    }
+
+    public static <O> WorkflowOption<O> of(String id, int priority, Concurrency concurrency) {
+        WorkflowOption<O> option = new WorkflowOption<>();
+        option.id = id;
+        option.priority = Priority.newBuilder().setPriorityKey(priority).build();
         option.concurrency = concurrency;
         return option;
     }

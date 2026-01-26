@@ -10,14 +10,20 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Component
-public @interface Task {
+public @interface Activity {
 
     Retry retry() default @Retry;
 
-    String timeout() default DEFAULT_TIMEOUT;
+    String startToCloseTimeout() default DEFAULT_START_TO_CLOSE_TIMEOUT;
+
+    String scheduleToStartTimeout() default "";
+
+    String scheduleToCloseTimeout() default "";
 
     String heartbeat() default DEFAULT_HEARTBEAT;
 
-    String DEFAULT_TIMEOUT = "1h";
+    boolean logStackTrace() default false;
+
+    String DEFAULT_START_TO_CLOSE_TIMEOUT = "60s";
     String DEFAULT_HEARTBEAT = "10s";
 }
