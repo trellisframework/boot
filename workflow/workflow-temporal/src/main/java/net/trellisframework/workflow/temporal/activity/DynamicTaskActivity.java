@@ -17,6 +17,7 @@ import net.trellisframework.workflow.temporal.util.TypeResolver;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,25 +27,25 @@ public class DynamicTaskActivity implements DynamicActivity {
 
     @Override
     public Object execute(EncodedValues args) {
-        String clazz = args.get(0, String.class);
+        String className = args.get(0, String.class);
         ScheduledExecutorService heartbeatScheduler = null;
         try {
-            Class<?> taskClass = Class.forName(clazz);
-            Object task = ApplicationContextProvider.context.getBean(taskClass);
-            Class<?> baseInterface = BaseWorkflowRepositoryTask.class.isAssignableFrom(taskClass)
+            Class<?> clazz = Class.forName(className);
+            Object task = ApplicationContextProvider.context.getBean(clazz);
+            Class<?> baseInterface = BaseWorkflowRepositoryTask.class.isAssignableFrom(clazz)
                     ? BaseWorkflowRepositoryTask.class
-                    : BaseWorkflowAction.class.isAssignableFrom(taskClass)
+                    : BaseWorkflowAction.class.isAssignableFrom(clazz)
                     ? BaseWorkflowAction.class
                     : BaseWorkflowTask.class;
-            Class<?>[] paramTypes = TypeResolver.getParameterTypes(taskClass, baseInterface);
-            heartbeatScheduler = startHeartbeat(taskClass);
+            Class<?>[] paramTypes = TypeResolver.getParameterTypes(clazz, baseInterface);
+            heartbeatScheduler = startHeartbeat(clazz);
             try {
                 return executeTask(task, args, paramTypes);
             } catch (Exception e) {
-                throw toApplicationFailure(e, taskClass);
+                throw toApplicationFailure(e, clazz);
             }
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("Task class not found: " + clazz, e);
+            throw new RuntimeException("Task class not found: " + className, e);
         } finally {
             stopHeartbeat(heartbeatScheduler);
         }
@@ -108,12 +109,8 @@ public class DynamicTaskActivity implements DynamicActivity {
         Retry retry = annotation != null ? annotation.retry() : null;
         String message = e instanceof HttpException http ? JsonUtil.toString(http.getErrorMessage()) : e.getMessage();
         int attempt = Activity.getExecutionContext().getInfo().getAttempt();
-        if (annotation != null && annotation.logStackTrace()) {
-            Logger.error(taskClass.getSimpleName(), e, "Task failed (attempt %d): %s", attempt, message);
-        } else {
-            Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", attempt, message);
-        }
-        boolean nonRetryable = retry != null && retry.include().length > 0 && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
+        Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", attempt, message);
+        boolean nonRetryable = Optional.ofNullable(retry).map(x -> x.include().length).orElse(0) > 0 && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
         ApplicationFailure failure = ApplicationFailure.newFailureWithCause(message, e.getClass().getName(), null);
         failure.setNonRetryable(nonRetryable);
         failure.setStackTrace(new StackTraceElement[0]);

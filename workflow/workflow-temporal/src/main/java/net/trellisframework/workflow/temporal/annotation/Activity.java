@@ -22,8 +22,6 @@ public @interface Activity {
 
     String heartbeat() default DEFAULT_HEARTBEAT;
 
-    boolean logStackTrace() default false;
-
     String DEFAULT_START_TO_CLOSE_TIMEOUT = "60s";
     String DEFAULT_HEARTBEAT = "10s";
 }
