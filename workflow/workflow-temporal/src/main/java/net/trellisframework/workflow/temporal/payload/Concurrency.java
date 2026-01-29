@@ -1,11 +1,16 @@
 package net.trellisframework.workflow.temporal.payload;
 
-import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Optional;
 
 
-@Getter
+@Data
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Concurrency {
     public static final int DEFAULT_LIMIT = 10;
     private String key;
@@ -29,6 +34,7 @@ public class Concurrency {
         return concurrency;
     }
 
+    @JsonIgnore
     public boolean isValid() {
         return Optional.ofNullable(key).map(x -> !x.isEmpty()).orElse(false);
     }

@@ -12,6 +12,7 @@ import net.trellisframework.util.string.StringUtil;
 import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Activity;
 import net.trellisframework.workflow.temporal.payload.ClosePolicy;
+import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
 
 import java.time.Duration;
@@ -43,6 +44,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     @Override
     default <TProcess extends Process2<O, I1, I2>, O, I1, I2> O call(Class<TProcess> process, I1 i1, I2 i2) {
+        if (i2 instanceof WorkflowOption option && WorkflowAction1.class.isAssignableFrom(process) && isInWorkflowContext())
+            return executeChildWorkflowWithOption(process, option, i1);
         if (process.isAnnotationPresent(Activity.class) && isInWorkflowContext())
             return executeTask(process, i1, i2);
         if (WorkflowAction2.class.isAssignableFrom(process) && isInWorkflowContext())
@@ -52,6 +55,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     @Override
     default <TProcess extends Process3<O, I1, I2, I3>, O, I1, I2, I3> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3) {
+        if (i3 instanceof WorkflowOption option && WorkflowAction2.class.isAssignableFrom(process) && isInWorkflowContext())
+            return executeChildWorkflowWithOption(process, option, i1, i2);
         if (process.isAnnotationPresent(Activity.class) && isInWorkflowContext())
             return executeTask(process, i1, i2, i3);
         if (WorkflowAction3.class.isAssignableFrom(process) && isInWorkflowContext())
@@ -61,6 +66,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     @Override
     default <TProcess extends Process4<O, I1, I2, I3, I4>, O, I1, I2, I3, I4> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3, I4 i4) {
+        if (i4 instanceof WorkflowOption option && WorkflowAction3.class.isAssignableFrom(process) && isInWorkflowContext())
+            return executeChildWorkflowWithOption(process, option, i1, i2, i3);
         if (process.isAnnotationPresent(Activity.class) && isInWorkflowContext())
             return executeTask(process, i1, i2, i3, i4);
         if (WorkflowAction4.class.isAssignableFrom(process) && isInWorkflowContext())
@@ -70,6 +77,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     @Override
     default <TProcess extends Process5<O, I1, I2, I3, I4, I5>, O, I1, I2, I3, I4, I5> O call(Class<TProcess> process, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5) {
+        if (i5 instanceof WorkflowOption option && WorkflowAction4.class.isAssignableFrom(process) && isInWorkflowContext())
+            return executeChildWorkflowWithOption(process, option, i1, i2, i3, i4);
         if (process.isAnnotationPresent(Activity.class) && isInWorkflowContext())
             return executeTask(process, i1, i2, i3, i4, i5);
         if (WorkflowAction5.class.isAssignableFrom(process) && isInWorkflowContext())
@@ -94,6 +103,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     default <O, I1, I2> Promise<O> callAsync(Class<?> process, I1 i1, I2 i2) {
+        if (i2 instanceof WorkflowOption option && WorkflowAction1.class.isAssignableFrom(process))
+            return startChildWorkflowAsyncWithOption(process, option, i1);
         if (process.isAnnotationPresent(Activity.class))
             return Async.function(() -> executeTask(process, i1, i2));
         if (WorkflowAction2.class.isAssignableFrom(process))
@@ -102,6 +113,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     default <O, I1, I2, I3> Promise<O> callAsync(Class<?> process, I1 i1, I2 i2, I3 i3) {
+        if (i3 instanceof WorkflowOption option && WorkflowAction2.class.isAssignableFrom(process))
+            return startChildWorkflowAsyncWithOption(process, option, i1, i2);
         if (process.isAnnotationPresent(Activity.class))
             return Async.function(() -> executeTask(process, i1, i2, i3));
         if (WorkflowAction3.class.isAssignableFrom(process))
@@ -110,6 +123,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     default <O, I1, I2, I3, I4> Promise<O> callAsync(Class<?> process, I1 i1, I2 i2, I3 i3, I4 i4) {
+        if (i4 instanceof WorkflowOption option && WorkflowAction3.class.isAssignableFrom(process))
+            return startChildWorkflowAsyncWithOption(process, option, i1, i2, i3);
         if (process.isAnnotationPresent(Activity.class))
             return Async.function(() -> executeTask(process, i1, i2, i3, i4));
         if (WorkflowAction4.class.isAssignableFrom(process))
@@ -118,6 +133,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     default <O, I1, I2, I3, I4, I5> Promise<O> callAsync(Class<?> process, I1 i1, I2 i2, I3 i3, I4 i4, I5 i5) {
+        if (i5 instanceof WorkflowOption option && WorkflowAction4.class.isAssignableFrom(process))
+            return startChildWorkflowAsyncWithOption(process, option, i1, i2, i3, i4);
         if (process.isAnnotationPresent(Activity.class))
             return Async.function(() -> executeTask(process, i1, i2, i3, i4, i5));
         if (WorkflowAction5.class.isAssignableFrom(process))
@@ -183,6 +200,10 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         return Stream.concat(Stream.of(clazz.getName()), Arrays.stream(args)).toArray();
     }
 
+    private Object[] prependClassNameWithOption(Class<?> clazz, WorkflowOption option, Object... args) {
+        return Stream.concat(Stream.concat(Stream.of(clazz.getName()), Arrays.stream(args)), Stream.of(option)).toArray();
+    }
+
     private <O> O executeTask(Class<?> taskClass, Object... args) {
         var stub = Workflow.newUntypedActivityStub(buildActivityOptions(taskClass));
         Object result = stub.execute(taskClass.getSimpleName(), Object.class, prependClassName(taskClass, args));
@@ -200,6 +221,13 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         return resultPromise.thenApply(result -> TypeResolver.convert(result, getReturnType(workflowClass)));
     }
 
+    private <O> Promise<O> startChildWorkflowAsyncWithOption(Class<?> workflowClass, WorkflowOption option, Object... args) {
+        ChildWorkflowStub stub = createChildWorkflowStub(workflowClass, ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON);
+        Promise<Object> resultPromise = stub.executeAsync(Object.class, prependClassNameWithOption(workflowClass, option, args));
+        stub.getExecution().get();
+        return resultPromise.thenApply(result -> TypeResolver.convert(result, getReturnType(workflowClass)));
+    }
+
     private <O> O executeChildWorkflow(Class<?> workflowClass, Object... args) {
         return executeChildWorkflow(workflowClass, ParentClosePolicy.PARENT_CLOSE_POLICY_TERMINATE, args);
     }
@@ -207,6 +235,12 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     private <O> O executeChildWorkflow(Class<?> workflowClass, ParentClosePolicy policy, Object... args) {
         ChildWorkflowStub stub = createChildWorkflowStub(workflowClass, policy);
         Object result = stub.execute(Object.class, prependClassName(workflowClass, args));
+        return TypeResolver.convert(result, getReturnType(workflowClass));
+    }
+
+    private <O> O executeChildWorkflowWithOption(Class<?> workflowClass, WorkflowOption option, Object... args) {
+        ChildWorkflowStub stub = createChildWorkflowStub(workflowClass, ParentClosePolicy.PARENT_CLOSE_POLICY_TERMINATE);
+        Object result = stub.execute(Object.class, prependClassNameWithOption(workflowClass, option, args));
         return TypeResolver.convert(result, getReturnType(workflowClass));
     }
 
