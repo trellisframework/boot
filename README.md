@@ -185,12 +185,14 @@ user/
 
 | Component | Can Call | Cannot Call |
 |-----------|----------|-------------|
-| **Action** | Actions, Tasks, RepositoryTasks | WorkflowTasks |
-| **WorkflowAction** | All Task types, child WorkflowActions | - |
+| **Action** | Actions, Tasks, RepositoryTasks | WorkflowTasks, WorkflowActions |
+| **WorkflowAction** | WorkflowTasks, WorkflowRepositoryTasks, Actions, Tasks, RepositoryTasks |
 | **Task** | Nothing (atomic) | Everything |
-| **RepositoryTask** | Repository methods only | Actions, Tasks |
+| **RepositoryTask** | Repository methods only |
 | **WorkflowTask** | Nothing (atomic) | Everything |
-| **WorkflowRepositoryTask** | Repository methods only | Actions, Tasks |
+| **WorkflowRepositoryTask** | Repository methods only |
+| **FluentValidator** | Actions, Tasks, RepositoryTasks |
+| **Controller/Job** | Actions, WorkflowActions |
 
 ### When to Use Each Pattern
 
@@ -829,14 +831,19 @@ public class AddUserRequest implements Payload, FluentValidator<AddUserRequest> 
 
     @Override
     public void execute() {
-        // Dynamic rule: Check if email already exists in database
+        // Dynamic rule: Check if email already exists in database (RepositoryTask)
         addRule(
             x -> call(ExistsUserByEmailTask.class, x.getEmail()),
             () -> new ConflictException(Messages.EMAIL_ALREADY_EXISTS)
         )
-        // Dynamic rule: Validate customer has available quota
+        // Dynamic rule: Validate API key (Task)
         .addRule(
-            x -> !call(HasAvailableQuotaTask.class, x.getCustomer().getId()),
+            x -> !call(ValidateApiKeyTask.class, x.getApiKey()),
+            () -> new UnauthorizedException(Messages.INVALID_API_KEY)
+        )
+        // Dynamic rule: Check quota (Action)
+        .addRule(
+            x -> !call(CheckQuotaAction.class, x.getCustomer().getId()),
             () -> new ForbiddenException(Messages.QUOTA_EXCEEDED)
         )
         // Auto-populate: Set default values
@@ -851,6 +858,8 @@ public class AddUserRequest implements Payload, FluentValidator<AddUserRequest> 
         )));
     }
 }
+
+// Note: In FluentValidator you can only call Action, Task, and RepositoryTask (not WorkflowTask)
 ```
 
 **When to Use Each:**
