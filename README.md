@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="_includes/logo.svg" alt="Trellis Framework" width="300"/>
+  <img src="logo.svg" alt="Trellis Framework" width="300"/>
 </p>
 
 <p align="center">
