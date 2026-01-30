@@ -1,10 +1,7 @@
 package net.trellisframework.workflow.temporal.workflow;
 
 import io.temporal.common.converter.EncodedValues;
-import io.temporal.workflow.Async;
-import io.temporal.workflow.DynamicQueryHandler;
-import io.temporal.workflow.DynamicWorkflow;
-import io.temporal.workflow.Workflow;
+import io.temporal.workflow.*;
 import net.trellisframework.context.action.*;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.workflow.temporal.action.Queryable;
@@ -19,11 +16,9 @@ import java.util.Optional;
 public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandler {
 
     public static final String SEARCH_ATTR_CONCURRENCY_KEY = "ConcurrencyKey";
-
     private Object workflowBean;
     private String workflowClassName;
     private WorkflowOption workflowOption;
-    private volatile boolean workflowCompleted = false;
 
     @Override
     public Object execute(EncodedValues args) {
@@ -39,18 +34,43 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
             workflowOption = extractWorkflowOption(args);
             Class<?>[] paramTypes = TypeResolver.getParameterTypes(workflowClass, BaseAction.class);
 
+            String key = null;
+            String holderId = null;
+            DistributedLockActivity lockActivity = null;
+            CancellationScope heartbeatScope = null;
             if (hasConcurrency()) {
-                String key = workflowOption.getConcurrencyKey();
-                String lockId = Workflow.getInfo().getRunId();
-                int limit = workflowOption.getConcurrencyLimit();
+                key = workflowOption.getConcurrencyKey();
+                holderId = Workflow.getInfo().getWorkflowId();
+                lockActivity = DistributedLockActivity.create();
+                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit());
                 
-                acquireLock(key, lockId, limit);
-                startHeartbeat(key, lockId);
+                final String lockKey = key;
+                final String lockHolderId = holderId;
+                final int lockLimit = workflowOption.getConcurrencyLimit();
+                final DistributedLockActivity activity = lockActivity;
+                
+                heartbeatScope = Workflow.newDetachedCancellationScope(() -> {
+                    while (true) {
+                        Workflow.sleep(Duration.ofSeconds(DistributedLockActivity.RENEW_INTERVAL_SECONDS));
+                        try {
+                            activity.keepAlive(lockKey, lockHolderId, lockLimit);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                });
+                Async.procedure(heartbeatScope::run);
             }
-            
-            Object result = executeWorkflow(workflowBean, args, paramTypes);
-            workflowCompleted = true;
-            return result;
+
+            try {
+                return executeWorkflow(workflowBean, args, paramTypes);
+            } finally {
+                if (heartbeatScope != null) {
+                    heartbeatScope.cancel();
+                }
+                if (lockActivity != null) {
+                    lockActivity.release(key, holderId);
+                }
+            }
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Workflow class not found: " + workflowClassName, e);
         }
@@ -69,23 +89,10 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         return Optional.ofNullable(workflowOption).map(WorkflowOption::hasConcurrency).orElse(false);
     }
 
-    private void acquireLock(String key, String lockId, int limit) {
-        DistributedLockActivity lock = DistributedLockActivity.create();
-        while (!lock.tryLock(key, lockId, limit)) {
-            Workflow.sleep(Duration.ofSeconds(3));
+    private void acquire(DistributedLockActivity activity, String key, String holderId, int limit) {
+        while (!activity.tryAcquire(key, holderId, limit)) {
+            Workflow.sleep(Duration.ofSeconds(1));
         }
-    }
-
-    private void startHeartbeat(String key, String lockId) {
-        Async.procedure(() -> {
-            DistributedLockActivity lock = DistributedLockActivity.create();
-            while (!workflowCompleted) {
-                Workflow.sleep(Duration.ofSeconds(3));
-                if (!workflowCompleted) {
-                    lock.keepAlive(key, lockId);
-                }
-            }
-        });
     }
 
     private Object executeWorkflow(Object workflow, EncodedValues args, Class<?>[] paramTypes) {

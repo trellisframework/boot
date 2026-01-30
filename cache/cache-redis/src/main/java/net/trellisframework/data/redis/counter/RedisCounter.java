@@ -10,14 +10,14 @@ public class RedisCounter {
 
     private static RedissonClient redisson;
 
-    private static RedissonClient getRedisson() {
+    private static RedissonClient redis() {
         if (redisson != null)
             return redisson;
         return redisson = ApplicationContextProvider.context.getBean(RedissonClient.class);
     }
 
     private static RAtomicDouble getCounter(String key) {
-        return getRedisson().getAtomicDouble(key);
+        return redis().getAtomicDouble(key);
     }
 
     public static long increment(String key) {

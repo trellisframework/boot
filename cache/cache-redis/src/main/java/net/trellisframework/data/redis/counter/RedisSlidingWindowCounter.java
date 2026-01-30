@@ -68,11 +68,11 @@ public class RedisSlidingWindowCounter {
     }
 
     private static RScoredSortedSet<String> getSet(String key) {
-        if (getRedisson() == null) return null;
-        return getRedisson().getScoredSortedSet(KEY_PREFIX + key);
+        if (redis() == null) return null;
+        return redis().getScoredSortedSet(KEY_PREFIX + key);
     }
 
-    private static RedissonClient getRedisson() {
+    private static RedissonClient redis() {
         if (redisson == null) {
             try {
                 redisson = ApplicationContextProvider.context.getBean(RedissonClient.class);

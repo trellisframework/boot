@@ -30,28 +30,28 @@ public class RedisSemaphore {
         return redisAvailable;
     }
 
-    private static RedissonClient getRedisson() {
+    private static RedissonClient redis() {
         if (redisson != null) return redisson;
         redisson = ApplicationContextProvider.context.getBean(RedissonClient.class);
         return redisson;
     }
 
-    private static RSemaphore getRedisSemaphore(String key, int permits) {
-        RSemaphore semaphore = getRedisson().getSemaphore(KEY_PREFIX + key);
+    private static RSemaphore redisSemaphore(String key, int permits) {
+        RSemaphore semaphore = redis().getSemaphore(KEY_PREFIX + key);
         semaphore.trySetPermits(permits);
         return semaphore;
     }
 
-    private static Semaphore getLocalSemaphore(String key, int permits) {
+    private static Semaphore localSemaphore(String key, int permits) {
         return LOCAL_SEMAPHORES.computeIfAbsent(key + ":" + permits, k -> new Semaphore(permits, true));
     }
 
     public static void acquire(String key, int permits) {
         try {
             if (isAvailable()) {
-                getRedisSemaphore(key, permits).acquire();
+                redisSemaphore(key, permits).acquire();
             } else {
-                getLocalSemaphore(key, permits).acquire();
+                localSemaphore(key, permits).acquire();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -61,16 +61,16 @@ public class RedisSemaphore {
 
     public static boolean tryAcquire(String key, int permits) {
         if (isAvailable()) {
-            return getRedisSemaphore(key, permits).tryAcquire();
+            return redisSemaphore(key, permits).tryAcquire();
         }
-        return getLocalSemaphore(key, permits).tryAcquire();
+        return localSemaphore(key, permits).tryAcquire();
     }
 
     public static void release(String key, int permits) {
         if (isAvailable()) {
-            getRedisSemaphore(key, permits).release();
+            redisSemaphore(key, permits).release();
         } else {
-            getLocalSemaphore(key, permits).release();
+            localSemaphore(key, permits).release();
         }
     }
 }
