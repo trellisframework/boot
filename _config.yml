@@ -9,6 +9,3 @@ plugins:
 # Site settings
 title: Trellis Framework
 description: A comprehensive Java framework for building enterprise microservices
-
-# Favicon
-favicon: /docs/favicon.svg
