@@ -1,8 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Navy blue rounded background -->
   <rect width="64" height="64" rx="10" fill="#1e3a5f"/>
-  
-  <!-- White T logo -->
   <g transform="translate(32, 32) scale(0.012, -0.012) translate(-7100, -4500)" fill="white">
     <path d="M6924 6250 c-119 -22 -191 -60 -1339 -718 -93 -53 -203 -160 -253
 -244 -43 -72 -79 -177 -92 -264 -13 -96 -13 -1320 1 -1420 31 -224 150 -400
