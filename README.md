@@ -1,10 +1,16 @@
-# Trellis Framework
+<p align="center">
+  <img src="docs/logo.svg" alt="Trellis Framework" width="300"/>
+</p>
 
-A comprehensive Java framework for building enterprise microservices with consistent architectural patterns.
+<p align="center">
+  A comprehensive Java framework for building enterprise microservices with consistent architectural patterns.
+</p>
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-green.svg)](https://spring.io/projects/spring-boot)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://openjdk.org/projects/jdk/21/"><img src="https://img.shields.io/badge/Java-21-orange.svg" alt="Java"/></a>
+  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-4.x-green.svg" alt="Spring Boot"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"/></a>
+</p>
 
 ---
 
