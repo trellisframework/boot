@@ -186,13 +186,13 @@ user/
 | Component | Can Call | Cannot Call |
 |-----------|----------|-------------|
 | **Action** | Actions, Tasks, RepositoryTasks | WorkflowTasks, WorkflowActions |
-| **WorkflowAction** | WorkflowTasks, WorkflowRepositoryTasks, Actions, Tasks, RepositoryTasks |
+| **WorkflowAction** | WorkflowTasks, WorkflowRepositoryTasks, child WorkflowActions | Actions, Tasks, RepositoryTasks |
 | **Task** | Nothing (atomic) | Everything |
-| **RepositoryTask** | Repository methods only |
+| **RepositoryTask** | Repository methods only | Actions, Tasks |
 | **WorkflowTask** | Nothing (atomic) | Everything |
-| **WorkflowRepositoryTask** | Repository methods only |
-| **FluentValidator** | Actions, Tasks, RepositoryTasks |
-| **Controller/Job** | Actions, WorkflowActions |
+| **WorkflowRepositoryTask** | Repository methods only | Actions, Tasks |
+| **FluentValidator** | Actions, Tasks, RepositoryTasks | WorkflowTasks, WorkflowActions |
+| **Controller/Job** | Actions, Tasks, RepositoryTasks, WorkflowActions | WorkflowTasks |
 
 ### When to Use Each Pattern
 
