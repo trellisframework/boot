@@ -2,7 +2,7 @@
   <!-- Transparent background -->
   
   <!-- Original T logo - #fe3a5f, larger scale -->
-  <g transform="translate(16, 14) scale(0.0085, -0.0085) translate(-7100, -4600)" fill="#fe3a5f">
+  <g transform="translate(16, 14) scale(0.0085, -0.0085) translate(-7100, -4600)" fill="#000000">
     <!-- Hexagon outline with T -->
     <path d="M6924 6250 c-119 -22 -191 -60 -1339 -718 -93 -53 -203 -160 -253
 -244 -43 -72 -79 -177 -92 -264 -13 -96 -13 -1320 1 -1420 31 -224 150 -400
