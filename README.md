@@ -146,36 +146,39 @@ user/
 
 ## Architecture
 
-### Layer Hierarchy
-
-The architecture has two parallel execution contexts:
+### Standard Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ORCHESTRATOR LAYER                                  │
-│  ┌──────────────────────────────┐    ┌──────────────────────────────────┐   │
-│  │           Action             │    │        WorkflowAction            │   │
-│  │  - Implements Use Cases      │    │  - Implements Use Cases          │   │
-│  │  - Synchronous execution     │    │  - Temporal Workflow execution   │   │
-│  │  - @Service annotation       │    │  - @Workflow annotation          │   │
-│  └──────────────┬───────────────┘    └──────────────┬───────────────────┘   │
+│                              ENTRY POINTS                                    │
+│     REST Controller    │    gRPC Controller    │    Event Handler    │ Job  │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+┌─────────────────────────────────────▼───────────────────────────────────────┐
+│                           ORCHESTRATOR LAYER                                 │
+│  ┌─────────────────────────────┐    ┌─────────────────────────────────────┐ │
+│  │          Action             │    │         WorkflowAction              │ │
+│  │  - Synchronous execution    │    │  - Temporal Workflow (durable)      │ │
+│  │  - @Service annotation      │    │  - @Workflow annotation             │ │
+│  └──────────────┬──────────────┘    └──────────────┬──────────────────────┘ │
 │                 │                                   │                        │
-│                 └───────────────────────────────────┘                        │
-│                                 │                                            │
-├─────────────────────────────────▼────────────────────────────────────────────┤
-│                            TASK LAYER                                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐  │
-│  │      Task       │  │ RepositoryTask  │  │ WorkflowTask/               │  │
-│  │  - @Service     │  │  - @Service     │  │ RepositoryWorkflowTask      │  │
-│  │                 │  │                 │  │  - @Task annotation         │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘  │
-│                                 │                                            │
-├─────────────────────────────────▼────────────────────────────────────────────┤
-│                          REPOSITORY LAYER                                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                   GenericJpaRepository                               │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+│                 │  ┌────────────────────────────────┘                        │
+│                 │  │                                                         │
+│                 ▼  ▼                                                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                              TASK LAYER                                      │
+│  ┌───────────────────┐  ┌───────────────────┐  ┌───────────────────────────┐│
+│  │       Task        │  │   RepositoryTask  │  │  WorkflowTask /           ││
+│  │   - @Service      │  │   - @Service      │  │  WorkflowRepositoryTask   ││
+│  │   - Atomic ops    │  │   - DB operations │  │  - @Activity annotation   ││
+│  └───────────────────┘  └─────────┬─────────┘  └─────────────┬─────────────┘│
+│                                   │                          │               │
+└───────────────────────────────────┼──────────────────────────┼───────────────┘
+                                    │                          │
+┌───────────────────────────────────▼──────────────────────────▼───────────────┐
+│                           DATA ACCESS LAYER                                  │
+│                        GenericJpaRepository                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Callable Rules
@@ -183,10 +186,11 @@ The architecture has two parallel execution contexts:
 | Component | Can Call | Cannot Call |
 |-----------|----------|-------------|
 | **Action** | Actions, Tasks, RepositoryTasks | WorkflowTasks |
-| **WorkflowAction** | All Task types, child Workflows | - |
+| **WorkflowAction** | All Task types, child WorkflowActions | - |
 | **Task** | Nothing (atomic) | Everything |
 | **RepositoryTask** | Repository methods only | Actions, Tasks |
 | **WorkflowTask** | Nothing (atomic) | Everything |
+| **WorkflowRepositoryTask** | Repository methods only | Actions, Tasks |
 
 ### When to Use Each Pattern
 
@@ -411,7 +415,7 @@ Equivalent to a Temporal Workflow - orchestrates the entire business process.
 
 ```java
 @Async
-@Workflow(timeout = "2h", version = "1.0.0")
+@Workflow(executionTimeout = "2h", version = "1.0.0")
 public class ProcessOrderWorkflowAction implements WorkflowAction1<Order, ProcessOrderRequest> {
 
     @Override
@@ -453,8 +457,10 @@ public class ProcessOrderWorkflowAction implements WorkflowAction1<Order, Proces
 | Attribute | Default | Description |
 |-----------|---------|-------------|
 | `taskQueue` | "" | Temporal task queue name |
-| `timeout` | "24h" | Workflow execution timeout |
-| `version` | "0.0.0" | Workflow version |
+| `executionTimeout` | "" | Maximum workflow execution time |
+| `runTimeout` | "" | Maximum single run time |
+| `taskTimeout` | "" | Maximum workflow task time |
+| `version` | "0.0.0" | Workflow version for versioning |
 
 **@Async Annotation:** Add for non-blocking execution. API returns immediately with workflow ID.
 
@@ -465,9 +471,9 @@ public class ProcessOrderWorkflowAction implements WorkflowAction1<Order, Proces
 Equivalent to a Temporal Activity - executes a single atomic operation.
 
 ```java
-@Task(
+@Activity(
     retry = @Retry(maxAttempts = 3, backoff = @Backoff(delay = 1000, maxDelay = 30000, multiplier = 2.0)),
-    timeout = "30s"
+    startToCloseTimeout = "30s"
 )
 public class ValidateOrderTask implements WorkflowTask1<Boolean, ProcessOrderRequest> {
 
@@ -482,20 +488,24 @@ public class ValidateOrderTask implements WorkflowTask1<Boolean, ProcessOrderReq
 }
 ```
 
-**@Task Annotation:**
+**@Activity Annotation:**
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|
-| `timeout` | "1h" | Activity execution timeout |
-| `heartbeat` | "10s" | Heartbeat interval |
+| `startToCloseTimeout` | "60s" | Max time from activity start to completion |
+| `scheduleToStartTimeout` | "" | Max time from schedule to start |
+| `scheduleToCloseTimeout` | "" | Max time from schedule to completion |
+| `heartbeat` | "10s" | Heartbeat interval for long-running activities |
 | `retry` | @Retry | Retry configuration |
 
 **@Retry Annotation:**
 
 | Attribute | Default | Description |
 |-----------|---------|-------------|
-| `maxAttempts` | 3 | Maximum retry attempts |
+| `maxAttempts` | 1 | Maximum retry attempts |
 | `backoff` | @Backoff | Backoff configuration |
+| `include` | {} | Exception types to retry |
+| `exclude` | {} | Exception types to not retry |
 
 **@Backoff Annotation:**
 
@@ -512,7 +522,7 @@ public class ValidateOrderTask implements WorkflowTask1<Boolean, ProcessOrderReq
 Temporal Activity with database access.
 
 ```java
-@Task
+@Activity
 public class SaveOrderTask implements WorkflowRepositoryTask1<OrderRepository, OrderEntity, OrderEntity> {
 
     @Override
@@ -544,9 +554,9 @@ public class SaveOrderTask implements WorkflowRepositoryTask1<OrderRepository, O
 
 ---
 
-### Workflow Concurrency Control
+### WorkflowOption
 
-Limit concurrent executions per key using `WorkflowOption` with `Concurrency`:
+Configure child workflow execution with `WorkflowOption`:
 
 ```java
 @Workflow(executionTimeout = "60m")
@@ -556,9 +566,9 @@ public class AddVerificationWorkflowAction implements WorkflowAction1<Verificati
     public Verification execute(AddVerificationRequest request) {
         VerificationEntity entity = call(SaveVerificationTask.class, VerificationEntity.of(request));
         
-        // Limit to 5 concurrent child workflows per customer
+        // Start child workflow with custom ID
         callAsync(ProcessEmailVerificationWorkflowAction.class, entity,
-            WorkflowOption.of(Concurrency.of(entity.getCustomer().getId(), 5)));
+            WorkflowOption.of("process-" + entity.getId()));
         
         return plainToClass(entity, Verification.class);
     }
@@ -571,22 +581,7 @@ public class AddVerificationWorkflowAction implements WorkflowAction1<Verificati
 |----------------|-------------|
 | `WorkflowOption.of(String id)` | Set workflow ID |
 | `WorkflowOption.of(int priority)` | Set priority (1-5) |
-| `WorkflowOption.of(Concurrency)` | Set concurrency limit |
-| `WorkflowOption.of(String id, Concurrency)` | Set ID and concurrency |
-| `WorkflowOption.of(int priority, Concurrency)` | Set priority and concurrency |
-| `WorkflowOption.of(String id, int priority, Concurrency)` | Set all options |
-
-**Concurrency:**
-
-| Factory Method | Description |
-|----------------|-------------|
-| `Concurrency.of(String key)` | Key with default limit (10) |
-| `Concurrency.of(String key, int limit)` | Key with custom limit |
-
-**Use Cases:**
-- Limit API calls per customer/tenant
-- Control resource usage per user
-- Rate limit external service calls
+| `WorkflowOption.of(String id, int priority)` | Set ID and priority |
 
 ---
 
@@ -814,7 +809,7 @@ PENDING → IN_PROGRESS → DONE
 
 ### FluentValidator Pattern
 
-Validation is implemented inside Payload classes:
+Use annotations for **static rules** and `FluentValidator` for **dynamic rules** that require database lookups, external validation, or complex business logic.
 
 ```java
 @Data
@@ -822,59 +817,59 @@ Validation is implemented inside Payload classes:
 @AllArgsConstructor(staticName = "of")
 public class AddUserRequest implements Payload, FluentValidator<AddUserRequest> {
 
-    @Required
+    @Required                    // Static rule - use annotation
+    @Email                       // Static rule - use annotation
     private String email;
 
     @Required
     private String name;
 
     private String refId;
+    private Customer customer;
 
     @Override
     public void execute() {
+        // Dynamic rule: Check if email already exists in database
         addRule(
-            x -> StringUtils.isBlank(x.getEmail()),
-            () -> new BadRequestException(Messages.EMAIL_IS_REQUIRED)
+            x -> call(ExistsUserByEmailTask.class, x.getEmail()),
+            () -> new ConflictException(Messages.EMAIL_ALREADY_EXISTS)
         )
+        // Dynamic rule: Validate customer has available quota
         .addRule(
-            x -> !EmailValidator.isValid(x.getEmail()),
-            () -> new BadRequestException(Messages.INVALID_EMAIL_FORMAT)
+            x -> !call(HasAvailableQuotaTask.class, x.getCustomer().getId()),
+            () -> new ForbiddenException(Messages.QUOTA_EXCEEDED)
         )
+        // Auto-populate: Set default values
         .addRule(
             x -> StringUtils.isBlank(x.getRefId()),
             x -> x.setRefId(UUID.randomUUID().toString())
-        );
+        )
+        // Auto-populate: Set customer from JWT token
+        .addRule(x -> x.setCustomer(Customer.of(
+            OAuthSecurityContext.getPrincipalId(),
+            OAuthSecurityContext.getEmail()
+        )));
     }
 }
 ```
+
+**When to Use Each:**
+
+| Validation Type | Approach |
+|-----------------|----------|
+| Required fields, format, length | Use annotations (`@Required`, `@Email`, `@Size`) |
+| Database lookups (duplicate check) | Use `FluentValidator` with `call()` |
+| External API validation | Use `FluentValidator` with `call()` |
+| Business rules with conditions | Use `FluentValidator` |
+| Auto-populate default values | Use `FluentValidator` with setter |
 
 **addRule Patterns:**
 
 | Pattern | Usage |
 |---------|-------|
-| `addRule(condition, () -> new Exception())` | Throw exception if true |
-| `addRule(condition, x -> x.setField(value))` | Set field if true |
-| `addRule(x -> x.setField(computed))` | Always set field |
-
----
-
-### Customer Tracking
-
-Populate customer from JWT token:
-
-```java
-@Override
-public void execute() {
-    addRule(
-        x -> StringUtils.isBlank(x.getRefId()),
-        x -> x.setRefId(UUID.randomUUID().toString())
-    )
-    .addRule(x -> x.setCustomer(Customer.of(
-        OAuthSecurityContext.getPrincipalId(),
-        OAuthSecurityContext.getEmail()
-    )));
-}
-```
+| `addRule(condition, () -> new Exception())` | Throw exception if condition is true |
+| `addRule(condition, x -> x.setField(value))` | Set field if condition is true |
+| `addRule(x -> x.setField(computed))` | Always set field (auto-populate) |
 
 ---
 
@@ -1065,18 +1060,21 @@ Logger.info(
 
 ## Caching
 
-```java
-@Cacheable(
-    cacheNames = "USER_CACHE",
-    key = "#email",
-    condition = "#email != null",
-    unless = "#result == null"
-)
-public User findByEmail(String email) { ... }
+Use `@CacheableConfig` to configure cache behavior per method:
 
-@CacheEvict(cacheNames = "USER_CACHE", key = "#user.email")
-public User update(User user) { ... }
+```java
+@CacheableConfig(value = "USER_CACHE", ttl = "1h", serializer = CacheSerializer.JSON)
+@Cacheable(cacheNames = "USER_CACHE", key = "#email")
+public User findByEmail(String email) { ... }
 ```
+
+**@CacheableConfig Annotation:**
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `value` | {} | Cache names |
+| `ttl` | "" | Time-to-live (e.g., "1h", "30m", "1d") |
+| `serializer` | JDK | Serialization: `JDK`, `BYTE_ARRAY`, `STRING`, `JSON` |
 
 ---
 
@@ -1086,20 +1084,6 @@ public User update(User user) { ... }
 @DistributedLock(value = "PROCESS_USERS", skipIfLocked = true, cooldown = "20s")
 @Scheduled(fixedDelay = 1000)
 public void execute() { ... }
-```
-
----
-
-## Concurrency
-
-```java
-List<CompletableFuture<Void>> futures = entities.stream()
-    .map(entity -> CompletableFuture.runAsync(
-        () -> call(ProcessUserAction.class, entity),
-        PROCESSING_POOL
-    ))
-    .toList();
-CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 ```
 
 ---
