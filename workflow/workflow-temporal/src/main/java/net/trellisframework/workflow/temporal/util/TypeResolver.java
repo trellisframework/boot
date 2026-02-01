@@ -7,6 +7,8 @@ import net.trellisframework.util.json.JsonUtil;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.*;
+
 
 public final class TypeResolver {
 
@@ -16,65 +18,95 @@ public final class TypeResolver {
     public static Class<?> getActivityBaseInterface(Class<?> clazz) {
         if (RepositoryTask.class.isAssignableFrom(clazz)) {
             return RepositoryTask.class;
-        } else if (Task.class.isAssignableFrom(clazz)) {
+        }
+        if (Task.class.isAssignableFrom(clazz)) {
             return Task.class;
-        } else if (Action.class.isAssignableFrom(clazz)) {
+        }
+        if (Action.class.isAssignableFrom(clazz)) {
             return Action.class;
         }
         throw new IllegalArgumentException("Class must implement Action, Task, or RepositoryTask: " + clazz.getName());
     }
 
     public static Class<?>[] getParameterTypes(Class<?> clazz, Class<?> baseInterface) {
-        return getParameterTypesRecursive(clazz, baseInterface, clazz.getGenericInterfaces());
+        return resolveParameterTypes(baseInterface, clazz.getGenericInterfaces());
     }
 
-    private static Class<?>[] getParameterTypesRecursive(Class<?> originalClass, Class<?> baseInterface, Type[] genericInterfaces) {
+    private static Class<?>[] resolveParameterTypes(Class<?> baseInterface, Type[] genericInterfaces) {
         for (Type type : genericInterfaces) {
-            if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> rawClass) {
-                if (baseInterface.isAssignableFrom(rawClass)) {
-                    Type[] typeArgs = pt.getActualTypeArguments();
-                    // For RepositoryTask: <R, O, I1, I2...> - skip R and O (first 2)
-                    // For Task/Action: <O, I1, I2...> - skip O (first 1)
-                    int skipCount = rawClass.getSimpleName().contains("Repository") ? 2 : 1;
-                    if (typeArgs.length > skipCount) {
-                        Class<?>[] paramTypes = new Class<?>[typeArgs.length - skipCount];
-                        for (int i = skipCount; i < typeArgs.length; i++) {
-                            paramTypes[i - skipCount] = typeArgs[i] instanceof Class<?> c ? c : Object.class;
-                        }
-                        return paramTypes;
-                    }
-                    // If this interface doesn't have enough type args, check its parent interfaces
-                    Class<?>[] result = getParameterTypesRecursive(originalClass, baseInterface, rawClass.getGenericInterfaces());
-                    if (result.length > 0) {
-                        return result;
-                    }
-                }
+            if (!(type instanceof ParameterizedType paramType)) {
+                continue;
+            }
+            if (!(paramType.getRawType() instanceof Class<?> rawClass)) {
+                continue;
+            }
+            if (!baseInterface.isAssignableFrom(rawClass)) {
+                continue;
+            }
+
+            Type[] typeArgs = paramType.getActualTypeArguments();
+            int skipCount = isRepositoryType(rawClass) ? 2 : 1;
+
+            if (typeArgs.length > skipCount) {
+                return extractParameterClasses(typeArgs, skipCount);
+            }
+
+            Class<?>[] parentResult = resolveParameterTypes(baseInterface, rawClass.getGenericInterfaces());
+            if (parentResult.length > 0) {
+                return parentResult;
             }
         }
         return new Class<?>[0];
     }
 
+    private static boolean isRepositoryType(Class<?> clazz) {
+        return clazz.getSimpleName().contains("Repository");
+    }
+
+    private static Class<?>[] extractParameterClasses(Type[] typeArgs, int skipCount) {
+        Class<?>[] result = new Class<?>[typeArgs.length - skipCount];
+        for (int i = skipCount; i < typeArgs.length; i++) {
+            result[i - skipCount] = toRawClass(typeArgs[i]);
+        }
+        return result;
+    }
+
+    private static Class<?> toRawClass(Type type) {
+        if (type instanceof Class<?> clazz) {
+            return clazz;
+        }
+        if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> clazz) {
+            return clazz;
+        }
+        return Object.class;
+    }
+
+
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<?> targetType) {
-        if (value == null || targetType == Void.class || targetType == void.class || targetType.isInstance(value)) {
+        if (value == null || targetType == Void.class || targetType == void.class) {
             return (T) value;
         }
+
+        if (targetType.isInstance(value)) {
+            return (T) value;
+        }
+
+        Object converted = convertCollection(value, targetType);
+        if (converted != null) {
+            return (T) converted;
+        }
+
         return (T) JsonUtil.toObject(value, targetType);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Type targetType) {
         if (targetType instanceof ParameterizedType pt && pt.getRawType() == java.util.Optional.class) {
-            if (value == null) {
-                return (T) java.util.Optional.empty();
-            }
-            Type innerType = pt.getActualTypeArguments()[0];
-            Class<?> innerClass = innerType instanceof Class<?> c ? c : Object.class;
-            Object converted = convert(value, innerClass);
-            return (T) java.util.Optional.ofNullable(converted);
+            return (T) convertToOptional(value, pt);
         }
         if (value == null) {
-            return (T) value;
+            return null;
         }
         if (targetType instanceof Class<?> clazz) {
             return convert(value, clazz);
@@ -82,6 +114,29 @@ public final class TypeResolver {
         return (T) value;
     }
 
+    private static Object convertCollection(Object value, Class<?> targetType) {
+        if (!(value instanceof Collection<?> collection)) {
+            return null;
+        }
+
+        if (Set.class.isAssignableFrom(targetType) && !(value instanceof Set)) {
+            return new HashSet<>(collection);
+        }
+
+        if (List.class.isAssignableFrom(targetType) && !(value instanceof List)) {
+            return new ArrayList<>(collection);
+        }
+
+        return null;
+    }
+
+    private static Object convertToOptional(Object value, ParameterizedType pt) {
+        if (value == null) {
+            return java.util.Optional.empty();
+        }
+        Type innerType = pt.getActualTypeArguments()[0];
+        Class<?> innerClass = toRawClass(innerType);
+        Object converted = convert(value, innerClass);
+        return java.util.Optional.ofNullable(converted);
+    }
 }
-
-

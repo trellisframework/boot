@@ -3,7 +3,10 @@ package net.trellisframework.workflow.temporal.provider;
 import io.temporal.activity.ActivityOptions;
 import io.temporal.api.enums.v1.ParentClosePolicy;
 import io.temporal.common.RetryOptions;
-import io.temporal.workflow.*;
+import io.temporal.workflow.ChildWorkflowOptions;
+import io.temporal.workflow.ChildWorkflowStub;
+import io.temporal.workflow.Promise;
+import io.temporal.workflow.Workflow;
 import net.trellisframework.context.process.*;
 import net.trellisframework.context.process.Process;
 import net.trellisframework.context.provider.ProcessContextProvider;
@@ -88,7 +91,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     default <O> Promise<O> callAsync(Class<?> process) {
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process));
+            return executeTaskAsync(process);
         if (WorkflowAction.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -96,7 +99,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
 
     default <O, I> Promise<O> callAsync(Class<?> process, I i1) {
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process, i1));
+            return executeTaskAsync(process, i1);
         if (WorkflowAction1.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process, i1);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -106,7 +109,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         if (i2 instanceof WorkflowOption option && WorkflowAction1.class.isAssignableFrom(process))
             return startChildWorkflowAsyncWithOption(process, option, i1);
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process, i1, i2));
+            return executeTaskAsync(process, i1, i2);
         if (WorkflowAction2.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process, i1, i2);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -116,7 +119,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         if (i3 instanceof WorkflowOption option && WorkflowAction2.class.isAssignableFrom(process))
             return startChildWorkflowAsyncWithOption(process, option, i1, i2);
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process, i1, i2, i3));
+            return executeTaskAsync(process, i1, i2, i3);
         if (WorkflowAction3.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process, i1, i2, i3);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -126,7 +129,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         if (i4 instanceof WorkflowOption option && WorkflowAction3.class.isAssignableFrom(process))
             return startChildWorkflowAsyncWithOption(process, option, i1, i2, i3);
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process, i1, i2, i3, i4));
+            return executeTaskAsync(process, i1, i2, i3, i4);
         if (WorkflowAction4.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process, i1, i2, i3, i4);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -136,7 +139,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         if (i5 instanceof WorkflowOption option && WorkflowAction4.class.isAssignableFrom(process))
             return startChildWorkflowAsyncWithOption(process, option, i1, i2, i3, i4);
         if (process.isAnnotationPresent(Activity.class))
-            return Async.function(() -> executeTask(process, i1, i2, i3, i4, i5));
+            return executeTaskAsync(process, i1, i2, i3, i4, i5);
         if (WorkflowAction5.class.isAssignableFrom(process))
             return startChildWorkflowAsync(process, i1, i2, i3, i4, i5);
         throw new IllegalArgumentException("Class must have @Activity annotation or extend WorkflowAction: " + process.getName());
@@ -191,7 +194,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         try {
             Workflow.getInfo();
             return true;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             return false;
         }
     }
@@ -208,6 +211,18 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         var stub = Workflow.newUntypedActivityStub(buildActivityOptions(taskClass));
         Object result = stub.execute(taskClass.getSimpleName(), Object.class, prependClassName(taskClass, args));
         return TypeResolver.convert(result, getReturnType(taskClass));
+    }
+
+    @SuppressWarnings("unchecked")
+    private <O> Promise<O> executeTaskAsync(Class<?> taskClass, Object... args) {
+        ActivityOptions options = buildActivityOptions(taskClass);
+        var stub = Workflow.newUntypedActivityStub(options);
+        String activityName = taskClass.getSimpleName();
+        Object[] activityArgs = prependClassName(taskClass, args);
+        java.lang.reflect.Type returnType = getReturnType(taskClass);
+        Promise<Object> promise = stub.executeAsync(activityName, Object.class, activityArgs);
+        Workflow.sleep(java.time.Duration.ofMillis(1));
+        return promise.thenApply(result -> TypeResolver.convert(result, returnType));
     }
 
     private <O> Promise<O> startChildWorkflowAsync(Class<?> workflowClass, Object... args) {
