@@ -15,6 +15,7 @@ import net.trellisframework.workflow.temporal.annotation.Retry;
 import net.trellisframework.workflow.temporal.task.*;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
 
+import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
@@ -37,7 +38,7 @@ public class DynamicTaskActivity implements DynamicActivity {
                     : BaseWorkflowAction.class.isAssignableFrom(clazz)
                     ? BaseWorkflowAction.class
                     : BaseWorkflowTask.class;
-            Class<?>[] paramTypes = TypeResolver.getParameterTypes(clazz, baseInterface);
+            Type[] paramTypes = TypeResolver.getGenericParameterTypes(clazz, baseInterface);
             heartbeatScheduler = startHeartbeat(clazz);
             try {
                 return executeTask(task, args, paramTypes);
@@ -51,7 +52,7 @@ public class DynamicTaskActivity implements DynamicActivity {
         }
     }
 
-    private Object executeTask(Object task, EncodedValues args, Class<?>[] paramTypes) {
+    private Object executeTask(Object task, EncodedValues args, Type[] paramTypes) {
         return switch (task) {
             case WorkflowTask<?> t -> t.execute();
             case WorkflowTask1 t -> t.execute(arg(args, 1, paramTypes, 0));
@@ -75,7 +76,7 @@ public class DynamicTaskActivity implements DynamicActivity {
         };
     }
 
-    private Object arg(EncodedValues args, int argIndex, Class<?>[] paramTypes, int typeIndex) {
+    private Object arg(EncodedValues args, int argIndex, Type[] paramTypes, int typeIndex) {
         return TypeResolver.convert(args.get(argIndex, Object.class), paramTypes[typeIndex]);
     }
 

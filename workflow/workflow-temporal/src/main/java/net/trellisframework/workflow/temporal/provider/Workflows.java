@@ -267,17 +267,21 @@ public interface Workflows extends ActionContextProvider {
         return result;
     }
 
-    private Class<?> getReturnType(Class<?> actionClass) {
-        for (Type type : actionClass.getGenericInterfaces()) {
-            if (type instanceof ParameterizedType pt) {
-                Type rawType = pt.getRawType();
-                if (rawType instanceof Class<?> rawClass && BaseWorkflowAction.class.isAssignableFrom(rawClass)) {
-                    Type[] typeArgs = pt.getActualTypeArguments();
-                    if (typeArgs.length > 0 && typeArgs[0] instanceof Class<?>) {
-                        return (Class<?>) typeArgs[0];
+    private Type getReturnType(Class<?> clazz) {
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            for (Type type : current.getGenericInterfaces()) {
+                if (type instanceof ParameterizedType pt) {
+                    Type rawType = pt.getRawType();
+                    if (rawType instanceof Class<?> rawClass && BaseWorkflowAction.class.isAssignableFrom(rawClass)) {
+                        Type[] typeArgs = pt.getActualTypeArguments();
+                        if (typeArgs.length > 0) {
+                            return typeArgs[0];
+                        }
                     }
                 }
             }
+            current = current.getSuperclass();
         }
         return Object.class;
     }

@@ -12,10 +12,7 @@ import io.temporal.common.VersioningBehavior;
 import io.temporal.common.WorkerDeploymentVersion;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 import io.temporal.serviceclient.WorkflowServiceStubsOptions;
-import io.temporal.worker.Worker;
-import io.temporal.worker.WorkerDeploymentOptions;
-import io.temporal.worker.WorkerFactory;
-import io.temporal.worker.WorkerOptions;
+import io.temporal.worker.*;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.util.thread.Threads;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
@@ -72,7 +69,7 @@ public class WorkflowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public WorkerFactory workerFactory(WorkflowClient client) {
-        return WorkerFactory.newInstance(client);
+        return WorkerFactory.newInstance(client, WorkerFactoryOptions.newBuilder().setWorkflowCacheSize(1000).build());
     }
 
     @Bean
@@ -140,7 +137,7 @@ public class WorkflowAutoConfiguration {
         }
 
         private void createWorker(WorkerFactory factory, String taskQueue, String version) {
-            WorkerOptions.Builder options = WorkerOptions.newBuilder();
+            WorkerOptions.Builder options = WorkerOptions.newBuilder().setDefaultDeadlockDetectionTimeout(60000);
             if (version != null)
                 options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder().setVersion(new WorkerDeploymentVersion(taskQueue, version)).setUseVersioning(true).setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE).build());
             Worker worker = factory.newWorker(taskQueue, options.build());
