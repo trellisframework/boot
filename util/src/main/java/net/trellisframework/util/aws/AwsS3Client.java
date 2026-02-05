@@ -14,18 +14,18 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.net.URI;
-import java.time.Duration;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class AwsS3Client {
 
@@ -43,15 +43,49 @@ public class AwsS3Client {
 
     public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
         Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        S3Presigner presigner = getPresigner(properties);
-        Duration duration = Duration.of(expireDuration, expireDurationUnit);
-        if (method == HttpMethod.GET) {
-            GetObjectRequest.Builder builder = GetObjectRequest.builder().bucket(properties.getKey()).key(key);
+        return generateSignedUrl(properties.getValue(), properties.getKey(), key, method, Instant.now().plus(expireDuration, expireDurationUnit).getEpochSecond(), downloadFileName);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, LocalDateTime expirationDateTime) {
+        return preSignedUrl(bucket, key, method, expirationDateTime, null);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, LocalDateTime expirationDateTime, String downloadFileName) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+        AwsS3ClientProperties.S3PropertiesDefinition config = properties.getValue();
+        long expires = expirationDateTime.atZone(ZoneOffset.UTC).toEpochSecond();
+        return generateSignedUrl(config, properties.getKey(), key, method, expires, downloadFileName);
+    }
+
+    private static String generateSignedUrl(AwsS3ClientProperties.S3PropertiesDefinition config, String bucket, String key, HttpMethod method, long expires, String downloadFileName) {
+        try {
+            boolean pathStyle = Optional.ofNullable(config.getPathStyle()).orElse(false);
+            String resource = "/" + bucket + "/" + key;
+            String stringToSign = method.name() + "\n\n\n" + expires + "\n" + resource;
+            Mac hmac = Mac.getInstance("HmacSHA1");
+            hmac.init(new SecretKeySpec(config.getCredential().getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
+            String signature = Base64.getEncoder().encodeToString(hmac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8)));
+            String host;
+            String path;
+            if (config.getEndpoint() != null) {
+                host = config.getEndpoint().replaceFirst("https?://", "");
+                path = pathStyle ? "/" + bucket + "/" + key : "/" + key;
+            } else {
+                host = pathStyle
+                        ? "s3." + config.getRegion() + ".amazonaws.com"
+                        : bucket + ".s3." + config.getRegion() + ".amazonaws.com";
+                path = pathStyle ? "/" + bucket + "/" + key : "/" + key;
+            }
+            StringBuilder url = new StringBuilder("https://").append(host).append(path)
+                    .append("?AWSAccessKeyId=").append(URLEncoder.encode(config.getCredential().getAccessKey(), StandardCharsets.UTF_8))
+                    .append("&Expires=").append(expires)
+                    .append("&Signature=").append(URLEncoder.encode(signature, StandardCharsets.UTF_8));
             if (StringUtils.isNotBlank(downloadFileName))
-                builder.responseContentDisposition("attachment; filename=\"" + downloadFileName + "\"");
-            return presigner.presignGetObject(GetObjectPresignRequest.builder().signatureDuration(duration).getObjectRequest(builder.build()).build()).url().toString();
+                url.append("&response-content-disposition=").append(URLEncoder.encode("attachment; filename=\"" + downloadFileName + "\"", StandardCharsets.UTF_8));
+            return url.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        return presigner.presignPutObject(PutObjectPresignRequest.builder().signatureDuration(duration).putObjectRequest(PutObjectRequest.builder().bucket(properties.getKey()).key(key).build()).build()).url().toString();
     }
 
     public static String getPublicUrl(String bucket, String key) {
@@ -128,16 +162,6 @@ public class AwsS3Client {
 
     private static S3Client getClient(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
         S3ClientBuilder builder = S3Client.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false)).build());
-        Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
-                x -> builder.endpointOverride(URI.create(getEndpointUrl(x, property.getValue().getRegion()))).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
-                () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(r -> builder.region(Region.of(r)))
-        );
-        return builder.build();
-    }
-
-    private static S3Presigner getPresigner(Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> property) {
-        S3Presigner.Builder builder = S3Presigner.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(property.getValue().getCredential().getAccessKey(), property.getValue().getCredential().getSecretKey()))).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(Optional.ofNullable(property.getValue().getPathStyle()).orElse(false)).build());
         Optional.ofNullable(property.getValue().getEndpoint()).ifPresentOrElse(
                 x -> builder.endpointOverride(URI.create(getEndpointUrl(x, property.getValue().getRegion()))).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
