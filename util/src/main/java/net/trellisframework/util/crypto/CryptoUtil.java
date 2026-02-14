@@ -1,11 +1,12 @@
 package net.trellisframework.util.crypto;
 
-import net.trellisframework.util.string.StringUtil;
 import net.trellisframework.core.log.Logger;
+import net.trellisframework.util.string.StringUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,26 @@ public class CryptoUtil {
         } catch (NoSuchAlgorithmException e) {
             Logger.error("sha256", e.getMessage());
             return StringUtils.EMPTY;
+        }
+    }
+
+    public static byte[] hmacSha256(byte[] key, String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static byte[] hmacSha256(byte[] key, byte[] data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(data);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

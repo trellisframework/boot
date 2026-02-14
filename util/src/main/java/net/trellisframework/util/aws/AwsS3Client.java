@@ -1,9 +1,13 @@
 package net.trellisframework.util.aws;
 
 import net.trellisframework.core.application.ApplicationContextProvider;
+import net.trellisframework.http.exception.BadRequestException;
 import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.util.constant.Messages;
+import net.trellisframework.util.crypto.CryptoUtil;
+import net.trellisframework.util.string.StringUtil;
+import net.trellisframework.util.url.URLUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpMethod;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -15,15 +19,13 @@ import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -37,55 +39,92 @@ public class AwsS3Client {
         return properties.getBuckets().entrySet().stream().filter(x -> x.getKey().equals(bucket)).findFirst().orElseThrow(() -> new NotFoundException(Messages.BUCKET_NOT_FOUND));
     }
 
+    private static final DateTimeFormatter AMZ_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter DATE_STAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, Instant expirationDate) {
+        return preSignedUrl(bucket, key, method, expirationDate, Instant.now(), null);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, Instant expirationDate, String downloadFileName) {
+        return preSignedUrl(bucket, key, method, expirationDate, Instant.now(), downloadFileName);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, Instant expirationDate, Instant signingDate) {
+        return preSignedUrl(bucket, key, method, expirationDate, signingDate, null);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, Instant expirationDate, Instant signingDate, String downloadFileName) {
+        long expiresInSeconds = Duration.between(signingDate, expirationDate).getSeconds();
+        if (expiresInSeconds <= 0)
+            throw new BadRequestException(Messages.EXPIRATION_DATE_MUST_BE_IN_THE_FUTURE.getMessage());
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+        return generateSignedUrlV4(properties.getValue(), properties.getKey(), key, method, expiresInSeconds, signingDate, downloadFileName);
+    }
+
     public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit) {
-        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, null);
+        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, Instant.now(), null);
     }
 
     public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
+        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, Instant.now(), downloadFileName);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate) {
+        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, signingDate, null);
+    }
+
+    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate, String downloadFileName) {
         Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        return generateSignedUrl(properties.getValue(), properties.getKey(), key, method, Instant.now().plus(expireDuration, expireDurationUnit).getEpochSecond(), downloadFileName);
+        long expiresInSeconds = Duration.of(expireDuration, expireDurationUnit).getSeconds();
+        return generateSignedUrlV4(properties.getValue(), properties.getKey(), key, method, expiresInSeconds, signingDate, downloadFileName);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, LocalDateTime expirationDateTime) {
-        return preSignedUrl(bucket, key, method, expirationDateTime, null);
-    }
-
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, LocalDateTime expirationDateTime, String downloadFileName) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        AwsS3ClientProperties.S3PropertiesDefinition config = properties.getValue();
-        long expires = expirationDateTime.atZone(ZoneOffset.UTC).toEpochSecond();
-        return generateSignedUrl(config, properties.getKey(), key, method, expires, downloadFileName);
-    }
-
-    private static String generateSignedUrl(AwsS3ClientProperties.S3PropertiesDefinition config, String bucket, String key, HttpMethod method, long expires, String downloadFileName) {
+    private static String generateSignedUrlV4(AwsS3ClientProperties.S3PropertiesDefinition config, String bucket, String key, HttpMethod method, long expiresInSeconds, Instant signingDate, String downloadFileName) {
         try {
             boolean pathStyle = Optional.ofNullable(config.getPathStyle()).orElse(false);
-            String resource = "/" + bucket + "/" + key;
-            String stringToSign = method.name() + "\n\n\n" + expires + "\n" + resource;
-            Mac hmac = Mac.getInstance("HmacSHA1");
-            hmac.init(new SecretKeySpec(config.getCredential().getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
-            String signature = Base64.getEncoder().encodeToString(hmac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8)));
+            String accessKey = config.getCredential().getAccessKey();
+            String secretKey = config.getCredential().getSecretKey();
+            String region = Optional.ofNullable(config.getRegion()).orElse("us-east-1");
             String host;
             String path;
             if (config.getEndpoint() != null) {
                 host = config.getEndpoint().replaceFirst("https?://", "");
                 path = pathStyle ? "/" + bucket + "/" + key : "/" + key;
             } else {
-                host = pathStyle
-                        ? "s3." + config.getRegion() + ".amazonaws.com"
-                        : bucket + ".s3." + config.getRegion() + ".amazonaws.com";
+                host = pathStyle ? "s3." + region + ".amazonaws.com" : bucket + ".s3." + region + ".amazonaws.com";
                 path = pathStyle ? "/" + bucket + "/" + key : "/" + key;
             }
-            StringBuilder url = new StringBuilder("https://").append(host).append(path)
-                    .append("?AWSAccessKeyId=").append(URLEncoder.encode(config.getCredential().getAccessKey(), StandardCharsets.UTF_8))
-                    .append("&Expires=").append(expires)
-                    .append("&Signature=").append(URLEncoder.encode(signature, StandardCharsets.UTF_8));
+            String amzDate = AMZ_DATE_FORMAT.format(signingDate);
+            String dateStamp = DATE_STAMP_FORMAT.format(signingDate);
+            String credential = accessKey + "/" + dateStamp + "/" + region + "/s3/aws4_request";
+
+            TreeMap<String, String> queryParams = new TreeMap<>();
+            queryParams.put("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
+            queryParams.put("X-Amz-Credential", credential);
+            queryParams.put("X-Amz-Date", amzDate);
+            queryParams.put("X-Amz-Expires", String.valueOf(expiresInSeconds));
+            queryParams.put("X-Amz-SignedHeaders", "host");
             if (StringUtils.isNotBlank(downloadFileName))
-                url.append("&response-content-disposition=").append(URLEncoder.encode("attachment; filename=\"" + downloadFileName + "\"", StandardCharsets.UTF_8));
-            return url.toString();
+                queryParams.put("response-content-disposition", "attachment; filename=\"" + downloadFileName + "\"");
+            String canonicalQueryString = URLUtil.buildCanonicalQueryString(queryParams);
+            String encodedPath = URLUtil.encodePath(path);
+            String canonicalRequest = method.name() + "\n" + encodedPath + "\n" + canonicalQueryString + "\n" + "host:" + host + "\n\n" + "host\n" + "UNSIGNED-PAYLOAD";
+            String stringToSign = "AWS4-HMAC-SHA256\n" + amzDate + "\n" + dateStamp + "/" + region + "/s3/aws4_request\n" + CryptoUtil.sha256(canonicalRequest);
+            byte[] signingKey = deriveSigningKey(secretKey, dateStamp, region);
+            String signature = StringUtil.encodeHexString(CryptoUtil.hmacSha256(signingKey, stringToSign));
+            return "https://" + host + encodedPath + "?" + canonicalQueryString + "&X-Amz-Signature=" + signature;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static byte[] deriveSigningKey(String secretKey, String dateStamp, String region) {
+        byte[] kSecret = ("AWS4" + secretKey).getBytes(StandardCharsets.UTF_8);
+        byte[] kDate = CryptoUtil.hmacSha256(kSecret, dateStamp);
+        byte[] kRegion = CryptoUtil.hmacSha256(kDate, region);
+        byte[] kService = CryptoUtil.hmacSha256(kRegion, "s3");
+        return CryptoUtil.hmacSha256(kService, "aws4_request");
     }
 
     public static String getPublicUrl(String bucket, String key) {

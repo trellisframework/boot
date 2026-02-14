@@ -1,16 +1,14 @@
 package net.trellisframework.core.config;
 
+import lombok.Data;
+import net.trellisframework.core.constant.ApplicationMode;
 import net.trellisframework.core.constant.Country;
 import net.trellisframework.core.constant.Language;
-import net.trellisframework.core.constant.ApplicationMode;
-import lombok.Data;
 import net.trellisframework.core.payload.Payload;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
 
 
 @ConfigurationProperties("spring.application")
-@Validated
 @Data
 public class ProductionPropertiesDefinition implements Payload {
     private ApplicationMode mode = ApplicationMode.PRODUCTION;

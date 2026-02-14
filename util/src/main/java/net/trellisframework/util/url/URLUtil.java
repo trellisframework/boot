@@ -6,9 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -80,6 +78,34 @@ public class URLUtil {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    public static String uriEncode(String input) {
+        StringBuilder result = new StringBuilder();
+        for (byte b : input.getBytes(StandardCharsets.UTF_8)) {
+            char c = (char) (b & 0xFF);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '~' || c == '.') {
+                result.append(c);
+            } else {
+                result.append(String.format("%%%02X", b));
+            }
+        }
+        return result.toString();
+    }
+
+    public static String encodePath(String path) {
+        StringJoiner joiner = new StringJoiner("/");
+        for (String segment : path.split("/", -1)) joiner.add(uriEncode(segment));
+        return joiner.toString();
+    }
+
+    public static String buildCanonicalQueryString(TreeMap<String, String> params) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            if (!sb.isEmpty()) sb.append("&");
+            sb.append(uriEncode(entry.getKey())).append("=").append(uriEncode(entry.getValue()));
+        }
+        return sb.toString();
     }
 
     public static String getDomainLtd(String domain) {

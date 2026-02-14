@@ -7,5 +7,6 @@ public enum Messages implements MessageHandler {
     CAN_NOT_DESERIALIZE_OBJECT,
     FILE_ALREADY_EXIST,
     FILE_NOT_FOUND,
-    CAN_NOT_CREATE_FILE;
+    CAN_NOT_CREATE_FILE,
+    EXPIRATION_DATE_MUST_BE_IN_THE_FUTURE;
 }
