@@ -19,6 +19,7 @@ public class AwsS3ClientProperties {
     @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     @Validated
     public static class S3PropertiesDefinition {
+        private String bucket;
         private String endpoint;
         private String region;
         private Credential credential;

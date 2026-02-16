@@ -33,10 +33,10 @@ public class AwsS3Client {
 
     private static AwsS3ClientProperties properties;
 
-    private static Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> getProperties(String bucket) {
+    private static Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> getProperties(String configKey) {
         if (properties == null)
             properties = ApplicationContextProvider.context.getBean(AwsS3ClientProperties.class);
-        return properties.getBuckets().entrySet().stream().filter(x -> x.getKey().equals(bucket)).findFirst().orElseThrow(() -> new NotFoundException(Messages.BUCKET_NOT_FOUND));
+        return properties.getBuckets().entrySet().stream().filter(x -> x.getKey().equals(configKey)).findFirst().orElseThrow(() -> new NotFoundException(Messages.BUCKET_NOT_FOUND));
     }
 
     private static final DateTimeFormatter AMZ_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
@@ -54,30 +54,32 @@ public class AwsS3Client {
         return preSignedUrl(bucket, key, method, expirationDate, signingDate, null);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, Instant expirationDate, Instant signingDate, String downloadFileName) {
+    public static String preSignedUrl(String configKey, String key, HttpMethod method, Instant expirationDate, Instant signingDate, String downloadFileName) {
         long expiresInSeconds = Duration.between(signingDate, expirationDate).getSeconds();
         if (expiresInSeconds <= 0)
             throw new BadRequestException(Messages.EXPIRATION_DATE_MUST_BE_IN_THE_FUTURE.getMessage());
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
-        return generateSignedUrlV4(properties.getValue(), properties.getKey(), key, method, expiresInSeconds, signingDate, downloadFileName);
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
+        return generateSignedUrlV4(properties.getValue(), bucket, key, method, expiresInSeconds, signingDate, downloadFileName);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit) {
-        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, Instant.now(), null);
+    public static String preSignedUrl(String configKey, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit) {
+        return preSignedUrl(configKey, key, method, expireDuration, expireDurationUnit, Instant.now(), null);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
-        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, Instant.now(), downloadFileName);
+    public static String preSignedUrl(String configKey, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, String downloadFileName) {
+        return preSignedUrl(configKey, key, method, expireDuration, expireDurationUnit, Instant.now(), downloadFileName);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate) {
-        return preSignedUrl(bucket, key, method, expireDuration, expireDurationUnit, signingDate, null);
+    public static String preSignedUrl(String configKey, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate) {
+        return preSignedUrl(configKey, key, method, expireDuration, expireDurationUnit, signingDate, null);
     }
 
-    public static String preSignedUrl(String bucket, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate, String downloadFileName) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+    public static String preSignedUrl(String configKey, String key, HttpMethod method, long expireDuration, ChronoUnit expireDurationUnit, Instant signingDate, String downloadFileName) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
         long expiresInSeconds = Duration.of(expireDuration, expireDurationUnit).getSeconds();
-        return generateSignedUrlV4(properties.getValue(), properties.getKey(), key, method, expiresInSeconds, signingDate, downloadFileName);
+        return generateSignedUrlV4(properties.getValue(), bucket, key, method, expiresInSeconds, signingDate, downloadFileName);
     }
 
     private static String generateSignedUrlV4(AwsS3ClientProperties.S3PropertiesDefinition config, String bucket, String key, HttpMethod method, long expiresInSeconds, Instant signingDate, String downloadFileName) {
@@ -127,8 +129,9 @@ public class AwsS3Client {
         return CryptoUtil.hmacSha256(kService, "aws4_request");
     }
 
-    public static String getPublicUrl(String bucket, String key) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+    public static String getPublicUrl(String configKey, String key) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
         S3Client client = getClient(properties);
         client.putObjectAcl(PutObjectAclRequest.builder().bucket(bucket).key(key).acl(ObjectCannedACL.PUBLIC_READ).build());
         return getUrl(properties, bucket, key);
@@ -138,8 +141,9 @@ public class AwsS3Client {
         return upload(bucket, key, file, override, ObjectCannedACL.PRIVATE);
     }
 
-    public static String upload(String bucket, String key, File file, boolean override, ObjectCannedACL cannedAcl) {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+    public static String upload(String configKey, String key, File file, boolean override, ObjectCannedACL cannedAcl) {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
         S3Client client = getClient(properties);
         if (!override && doesObjectExist(client, properties.getKey(), key)) {
             throw new ConflictException(Messages.FILE_ALREADY_EXIST);
@@ -149,16 +153,18 @@ public class AwsS3Client {
         }
     }
 
-    public static void download(String bucket, String key, File file) throws NotFoundException {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+    public static void download(String configKey, String key, File file) throws NotFoundException {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
         S3Client client = getClient(properties);
         if (!doesObjectExist(client, properties.getKey(), key))
             throw new NotFoundException(Messages.FILE_NOT_FOUND);
         client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build(), file.toPath());
     }
 
-    public static List<S3Object> browse(String bucket, String folder, Integer page, Integer size) throws NotFoundException {
-        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(bucket);
+    public static List<S3Object> browse(String configKey, String folder, Integer page, Integer size) throws NotFoundException {
+        Map.Entry<String, AwsS3ClientProperties.S3PropertiesDefinition> properties = getProperties(configKey);
+        String bucket = Optional.ofNullable(properties.getValue().getBucket()).orElse(properties.getKey());
         S3Client client = getClient(properties);
         List<S3Object> s3Objects = new ArrayList<>();
         ListObjectsV2Response objectListing;
