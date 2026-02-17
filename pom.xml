@@ -35,6 +35,7 @@
         <module>socket</module>
         <module>cache</module>
         <module>workflow</module>
+        <module>mcp</module>
     </modules>
     <dependencies>
         <dependency>
