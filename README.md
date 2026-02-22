@@ -1745,24 +1745,64 @@ The `oauth-resource-keycloak` module supports multi-tenancy via issuer-based res
 
 **Module:** `http`
 
-Trellis provides an HTTP client built on Retrofit 3.0 and OkHttp with built-in retry logic:
+Trellis provides an HTTP client built on Retrofit 3.0 and OkHttp with built-in retry logic.
+
+**Step 1 — Define the client interface:**
 
 ```java
-// Define API interface (Retrofit-style)
-public interface UserApi {
-    @GET("users/{id}")
-    Call<User> getUser(@Path("id") String id);
+public interface UserServiceClient {
 
-    @POST("users")
-    Call<User> createUser(@Body AddUserRequest request);
+    static UserServiceClient getInstance() {
+        return HttpHelper.getHttpInstance(
+            Config.USER_SERVICE_URL.getOrDefult("https://api.example.com"),
+            UserServiceClient.class,
+            10,    // connectTimeout (seconds)
+            10,    // readTimeout (seconds)
+            60     // writeTimeout (seconds)
+        );
+    }
+
+    @GET("/api/users/{id}")
+    @Headers({"Content-Type: application/json"})
+    Call<User> read(@Header("Authorization") String token, @Path("id") String id);
+
+    @POST("/api/users")
+    @Headers({"Content-Type: application/json"})
+    Call<User> add(@Header("Authorization") String token, @Body AddUserRequest request);
+
+    @GET("/api/users")
+    @Headers({"Content-Type: application/json"})
+    Call<List<User>> browse(@Header("Authorization") String token, @Query("page") int page);
 }
-
-// Create client and execute
-UserApi api = HttpHelper.create(UserApi.class, "https://api.example.com");
-User user = HttpHelper.execute(api.getUser("123"));
 ```
 
+**Step 2 — Use in an Action:**
+
+```java
+@Service
+public class ReadExternalUserAction implements Action1<User, String> {
+
+    @Override
+    public User execute(String userId) {
+        String token = "Bearer " + OAuthSecurityContext.getAccessToken();
+        return HttpHelper.execute(UserServiceClient.getInstance().read(token, userId));
+    }
+}
+```
+
+**`HttpHelper.getHttpInstance` Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `baseUrl` | Base URL of the target API |
+| `clientClass` | Retrofit interface class |
+| `connectTimeout` | Connection timeout in seconds |
+| `readTimeout` | Read timeout in seconds |
+| `writeTimeout` | Write timeout in seconds |
+
 **Features:**
+- Singleton client instances via `static getInstance()`
+- Configurable timeouts per client
 - Retry interceptor with configurable `Retry` policy
 - Jackson-based JSON serialization/deserialization
 - Custom `ConverterFactory` for request/response conversion
