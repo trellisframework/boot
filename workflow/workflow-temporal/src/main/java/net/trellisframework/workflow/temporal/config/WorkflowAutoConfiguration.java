@@ -1,10 +1,12 @@
 package net.trellisframework.workflow.temporal.config;
 
 import io.temporal.api.enums.v1.IndexedValueType;
+import io.temporal.api.namespace.v1.NamespaceConfig;
 import io.temporal.api.operatorservice.v1.AddSearchAttributesRequest;
 import io.temporal.api.operatorservice.v1.ListSearchAttributesRequest;
 import io.temporal.api.operatorservice.v1.OperatorServiceGrpc;
 import io.temporal.api.workflowservice.v1.RegisterNamespaceRequest;
+import io.temporal.api.workflowservice.v1.UpdateNamespaceRequest;
 import io.temporal.api.workflowservice.v1.WorkflowServiceGrpc;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowClientOptions;
@@ -38,7 +40,6 @@ import java.util.Set;
 public class WorkflowAutoConfiguration {
 
     private static final String CONCURRENCY_KEY = DynamicWorkflowAction.SEARCH_ATTR_CONCURRENCY_KEY;
-    private static final int NAMESPACE_RETENTION_DAYS = 7;
 
     static {
         Configurator.setLevel("io.temporal.internal.activity", Level.OFF);
@@ -55,7 +56,7 @@ public class WorkflowAutoConfiguration {
     public WorkflowServiceStubs workflowServiceStubs(WorkflowProperties properties) {
         WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder().setTarget(properties.getTarget()).build());
         String namespace = getNamespace(properties);
-        ensureNamespaceExists(stubs, namespace);
+        ensureNamespaceExists(stubs, namespace, properties.getRetentionDays());
         ensureSearchAttributeExists(stubs, namespace);
         return stubs;
     }
@@ -82,14 +83,22 @@ public class WorkflowAutoConfiguration {
         return StringUtils.defaultIfBlank(properties.getNamespace(), applicationMode);
     }
 
-    private void ensureNamespaceExists(WorkflowServiceStubs stubs, String namespace) {
+    private void ensureNamespaceExists(WorkflowServiceStubs stubs, String namespace, int retentionDays) {
+        var stub = WorkflowServiceGrpc.newBlockingStub(stubs.getRawChannel());
+        var retention = com.google.protobuf.Duration.newBuilder().setSeconds((long) retentionDays * 24 * 60 * 60).build();
         try {
-            var stub = WorkflowServiceGrpc.newBlockingStub(stubs.getRawChannel());
-            stub.registerNamespace(RegisterNamespaceRequest.newBuilder().setNamespace(namespace).setWorkflowExecutionRetentionPeriod(com.google.protobuf.Duration.newBuilder().setSeconds(NAMESPACE_RETENTION_DAYS * 24 * 60 * 60).build()).build());
-            Logger.info("Temporal", "Created namespace: %s", namespace);
+            stub.registerNamespace(RegisterNamespaceRequest.newBuilder().setNamespace(namespace).setWorkflowExecutionRetentionPeriod(retention).build());
+            Logger.info("Temporal", "Created namespace: %s (retention: %d days)", namespace, retentionDays);
             Threads.sleep(2000);
         } catch (io.grpc.StatusRuntimeException e) {
-            if (e.getStatus().getCode() != io.grpc.Status.Code.ALREADY_EXISTS) {
+            if (e.getStatus().getCode() == io.grpc.Status.Code.ALREADY_EXISTS) {
+                try {
+                    stub.updateNamespace(UpdateNamespaceRequest.newBuilder().setNamespace(namespace).setConfig(NamespaceConfig.newBuilder().setWorkflowExecutionRetentionTtl(retention).build()).build());
+                    Logger.info("Temporal", "Updated namespace retention: %s (%d days)", namespace, retentionDays);
+                } catch (Exception ex) {
+                    Logger.warn("Temporal", "Could not update namespace retention: %s", ex.getMessage());
+                }
+            } else {
                 Logger.warn("Temporal", "Could not create namespace: %s", e.getMessage());
             }
         }

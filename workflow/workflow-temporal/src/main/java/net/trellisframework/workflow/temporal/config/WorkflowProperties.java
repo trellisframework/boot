@@ -11,5 +11,6 @@ public class WorkflowProperties {
     private String target = "localhost:7233";
     private String namespace;
     private String taskQueue;
+    private int retentionDays = 7;
 
 }
