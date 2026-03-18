@@ -127,9 +127,9 @@ public class WorkflowAutoConfiguration {
         public WorkerInitializer(WorkerFactory factory, String taskQueue, ApplicationContext ctx) {
             Set<String> versions = collectVersions(ctx);
             if (versions.isEmpty())
-                createWorker(factory, taskQueue, null);
+                createWorker(factory, taskQueue, null, ctx);
             else
-                versions.forEach(v -> createWorker(factory, taskQueue, v));
+                versions.forEach(v -> createWorker(factory, taskQueue, v, ctx));
             factory.start();
         }
 
@@ -145,8 +145,12 @@ public class WorkflowAutoConfiguration {
             return versions;
         }
 
-        private void createWorker(WorkerFactory factory, String taskQueue, String version) {
-            WorkerOptions.Builder options = WorkerOptions.newBuilder().setDefaultDeadlockDetectionTimeout(60000);
+        private void createWorker(WorkerFactory factory, String taskQueue, String version, ApplicationContext ctx) {
+            WorkflowProperties props = ctx.getBean(WorkflowProperties.class);
+            WorkerOptions.Builder options = WorkerOptions.newBuilder()
+                    .setDefaultDeadlockDetectionTimeout(props.getDeadlockDetectionTimeout())
+                    .setMaxConcurrentWorkflowTaskExecutionSize(props.getMaxConcurrentWorkflowTasks())
+                    .setMaxConcurrentActivityExecutionSize(props.getMaxConcurrentActivities());
             if (version != null)
                 options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder().setVersion(new WorkerDeploymentVersion(taskQueue, version)).setUseVersioning(true).setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE).build());
             Worker worker = factory.newWorker(taskQueue, options.build());
