@@ -42,7 +42,8 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
                 key = workflowOption.getConcurrencyKey();
                 holderId = Workflow.getInfo().getWorkflowId();
                 lockActivity = DistributedLockActivity.create();
-                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit());
+                Object[] rawArgs = extractRawArgs(args);
+                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit(), rawArgs);
                 
                 final String lockKey = key;
                 final String lockHolderId = holderId;
@@ -89,9 +90,18 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         return Optional.ofNullable(workflowOption).map(WorkflowOption::hasConcurrency).orElse(false);
     }
 
-    private void acquire(DistributedLockActivity activity, String key, String holderId, int limit) {
+    private Object[] extractRawArgs(EncodedValues args) {
+        Object[] raw = new Object[args.getSize()];
+        for (int i = 0; i < args.getSize(); i++)
+            raw[i] = args.get(i, Object.class);
+        return raw;
+    }
+
+    private void acquire(DistributedLockActivity activity, String key, String holderId, int limit, Object[] rawArgs) {
         while (!activity.tryAcquire(key, holderId, limit)) {
-            Workflow.sleep(Duration.ofSeconds(1));
+            Workflow.sleep(Duration.ofSeconds(30));
+            if (Workflow.getInfo().getHistoryLength() > 200)
+                Workflow.continueAsNew(rawArgs);
         }
     }
 

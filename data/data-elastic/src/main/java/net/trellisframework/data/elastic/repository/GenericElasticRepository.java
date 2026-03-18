@@ -18,6 +18,7 @@ import net.trellisframework.http.exception.ServiceUnavailableException;
 import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.util.reflection.ReflectionUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -42,7 +43,7 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
         Class<TEntity> clazz = getEntityClass();
         if (clazz.isAnnotationPresent(Document.class))
             return clazz.getAnnotation(Document.class).value();
-        return StringUtils.lowerCase(StringUtils.replace(StringUtils.replaceIgnoreCase(clazz.getSimpleName(), "entity", ""), "document", ""));
+        return StringUtils.lowerCase(Strings.CI.replace(Strings.CI.replace(clazz.getSimpleName(), "entity", ""), "document", ""));
     }
 
     default Long count(Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn) {
