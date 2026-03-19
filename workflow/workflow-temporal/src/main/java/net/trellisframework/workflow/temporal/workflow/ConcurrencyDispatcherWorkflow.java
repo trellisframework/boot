@@ -37,7 +37,11 @@ public interface ConcurrencyDispatcherWorkflow {
                 initialQueue.forEach(queue::add);
 
             while (true) {
-                Workflow.await(() -> (!queue.isEmpty() && activeChildren.size() < limit) || shouldContinueAsNew());
+                boolean changed = Workflow.await(Duration.ofMinutes(5),
+                        () -> !queue.isEmpty() || activeChildren.isEmpty() || shouldContinueAsNew());
+
+                if (!changed && queue.isEmpty() && activeChildren.isEmpty())
+                    return;
 
                 if (shouldContinueAsNew()) {
                     Workflow.newContinueAsNewStub(ConcurrencyDispatcherWorkflow.class)
