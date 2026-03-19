@@ -20,6 +20,7 @@ import net.trellisframework.util.thread.Threads;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.activity.DynamicTaskActivity;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
+import net.trellisframework.workflow.temporal.workflow.ConcurrencyDispatcherWorkflow;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
@@ -154,7 +155,7 @@ public class WorkflowAutoConfiguration {
             if (version != null)
                 options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder().setVersion(new WorkerDeploymentVersion(taskQueue, version)).setUseVersioning(true).setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE).build());
             Worker worker = factory.newWorker(taskQueue, options.build());
-            worker.registerWorkflowImplementationTypes(DynamicWorkflowAction.class);
+            worker.registerWorkflowImplementationTypes(DynamicWorkflowAction.class, ConcurrencyDispatcherWorkflow.Impl.class);
             worker.registerActivitiesImplementations(new DynamicTaskActivity(), new DistributedLockActivity.Impl());
             Logger.info("Temporal", "Worker started on queue: %s%s", taskQueue, version != null ? ", version: " + version : "");
         }

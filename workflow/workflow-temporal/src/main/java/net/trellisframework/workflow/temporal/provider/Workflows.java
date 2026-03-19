@@ -34,7 +34,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 @SuppressWarnings("unchecked")
-public interface Workflows extends ActionContextProvider {
+public interface Workflows extends ActionContextProvider, WorkflowQuery {
 
     @Override
     default <A extends Action<O>, O> O call(Class<A> action) {
@@ -286,13 +286,4 @@ public interface Workflows extends ActionContextProvider {
         return Object.class;
     }
 
-    default <T> T query(String workflowId, String queryType, Class<T> resultClass, Object... args) {
-        WorkflowClient client = ApplicationContextProvider.context.getBean(WorkflowClient.class);
-        WorkflowStub stub = client.newUntypedWorkflowStub(workflowId);
-        return stub.query(queryType, resultClass, args);
-    }
-
-    default Object query(String workflowId, String queryType, Object... args) {
-        return query(workflowId, queryType, Object.class, args);
-    }
 }

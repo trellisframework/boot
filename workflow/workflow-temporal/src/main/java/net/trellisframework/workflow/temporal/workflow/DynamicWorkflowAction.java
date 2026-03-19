@@ -23,6 +23,9 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     @Override
     public Object execute(EncodedValues args) {
         workflowClassName = args.get(0, String.class);
+        String dispatcherId = extractDispatcherId(args);
+        String childId = extractChildId(args);
+
         try {
             Class<?> workflowClass = Class.forName(workflowClassName);
             workflowBean = ApplicationContextProvider.context.getBean(workflowClass);
@@ -38,18 +41,19 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
             String holderId = null;
             DistributedLockActivity lockActivity = null;
             CancellationScope heartbeatScope = null;
-            if (hasConcurrency()) {
+            boolean managedByDispatcher = dispatcherId != null;
+
+            if (!managedByDispatcher && hasConcurrency()) {
                 key = workflowOption.getConcurrencyKey();
                 holderId = Workflow.getInfo().getWorkflowId();
                 lockActivity = DistributedLockActivity.create();
-                Object[] rawArgs = extractRawArgs(args);
-                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit(), rawArgs);
-                
+                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit());
+
                 final String lockKey = key;
                 final String lockHolderId = holderId;
                 final int lockLimit = workflowOption.getConcurrencyLimit();
                 final DistributedLockActivity activity = lockActivity;
-                
+
                 heartbeatScope = Workflow.newDetachedCancellationScope(() -> {
                     while (true) {
                         Workflow.sleep(Duration.ofSeconds(DistributedLockActivity.RENEW_INTERVAL_SECONDS));
@@ -71,10 +75,40 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
                 if (lockActivity != null) {
                     lockActivity.release(key, holderId);
                 }
+                if (managedByDispatcher) {
+                    notifyDispatcher(dispatcherId, childId);
+                }
             }
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Workflow class not found: " + workflowClassName, e);
         }
+    }
+
+    private String extractDispatcherId(EncodedValues args) {
+        if (args.getSize() >= 3) {
+            try {
+                String val = args.get(args.getSize() - 2, String.class);
+                if (val != null && val.startsWith("ConcurrencyDispatcher-"))
+                    return val;
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private String extractChildId(EncodedValues args) {
+        if (args.getSize() >= 3) {
+            try {
+                return args.get(args.getSize() - 1, String.class);
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private void notifyDispatcher(String dispatcherId, String childId) {
+        try {
+            ExternalWorkflowStub dispatcher = Workflow.newUntypedExternalWorkflowStub(dispatcherId);
+            dispatcher.signal("reportCompletion", childId);
+        } catch (Exception ignored) {}
     }
 
     private WorkflowOption extractWorkflowOption(EncodedValues args) {
@@ -90,18 +124,9 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         return Optional.ofNullable(workflowOption).map(WorkflowOption::hasConcurrency).orElse(false);
     }
 
-    private Object[] extractRawArgs(EncodedValues args) {
-        Object[] raw = new Object[args.getSize()];
-        for (int i = 0; i < args.getSize(); i++)
-            raw[i] = args.get(i, Object.class);
-        return raw;
-    }
-
-    private void acquire(DistributedLockActivity activity, String key, String holderId, int limit, Object[] rawArgs) {
+    private void acquire(DistributedLockActivity activity, String key, String holderId, int limit) {
         while (!activity.tryAcquire(key, holderId, limit)) {
-            Workflow.sleep(Duration.ofSeconds(30));
-            if (Workflow.getInfo().getHistoryLength() > 200)
-                Workflow.continueAsNew(rawArgs);
+            Workflow.sleep(Duration.ofSeconds(1));
         }
     }
 
