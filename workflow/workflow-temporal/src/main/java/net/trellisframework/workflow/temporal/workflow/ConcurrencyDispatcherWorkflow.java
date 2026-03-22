@@ -30,7 +30,7 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
             try { initialQueue = args.get(3, List.class); } catch (Exception ignored) {}
         }
         if (initialQueue != null)
-            initialQueue.forEach(queue::add);
+            queue.addAll(initialQueue);
 
         List<String> previousChildren = null;
         if (args.getSize() > 4) {
@@ -42,20 +42,17 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
         int idleCount = 0;
 
         while (true) {
-            // Start children up to limit
             while (!queue.isEmpty() && activeChildren.size() < limit) {
                 startChild(queue.poll());
                 idleCount = 0;
             }
 
-            // ContinueAsNew when history getting large
             if (Workflow.getInfo().getHistoryLength() > MAX_HISTORY) {
                 Workflow.continueAsNew(CLASS_NAME, limit, pageSize,
                         new ArrayList<>(queue), new ArrayList<>(activeChildren));
                 return;
             }
 
-            // Idle: no queue, no children → wait 5 min then terminate
             if (queue.isEmpty() && activeChildren.isEmpty()) {
                 idleCount++;
                 if (idleCount >= 30)
@@ -74,6 +71,10 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
             case "dispatch" -> {
                 List<Object> workArgs = args.get(0, List.class);
                 queue.add(workArgs);
+                try {
+                    int newLimit = args.get(1, int.class);
+                    if (newLimit > 0) limit = newLimit;
+                } catch (Exception ignored) {}
             }
             case "reportCompletion" -> {
                 String childWorkflowId = args.get(0, String.class);
@@ -85,6 +86,9 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
     public Object handleQuery(String queryType, EncodedValues args) {
         if ("getPendingCount".equals(queryType)) {
             return queue.size() + activeChildren.size();
+        }
+        if ("getLimit".equals(queryType)) {
+            return limit;
         }
         throw new IllegalArgumentException("Unknown query type: " + queryType);
     }

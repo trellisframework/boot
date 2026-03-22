@@ -23,4 +23,12 @@ public interface WorkflowQuery {
             return 0;
         }
     }
+
+    default void updateConcurrencyLimit(String concurrencyKey, int newLimit) {
+        try {
+            WorkflowClient client = ApplicationContextProvider.context.getBean(WorkflowClient.class);
+            WorkflowStub stub = client.newUntypedWorkflowStub("ConcurrencyDispatcher-" + concurrencyKey);
+            stub.signal("updateLimit", newLimit);
+        } catch (Exception ignored) {}
+    }
 }

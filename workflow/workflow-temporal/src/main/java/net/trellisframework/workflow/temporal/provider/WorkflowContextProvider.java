@@ -262,7 +262,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
             stub.getExecution().get();
         } catch (ChildWorkflowFailure e) {
             ExternalWorkflowStub ext = Workflow.newUntypedExternalWorkflowStub(dispatcherId);
-            ext.signal("dispatch", workArgs);
+            ext.signal("dispatch", workArgs, option.getConcurrencyLimit());
         }
 
         return Workflow.newPromise(null);
