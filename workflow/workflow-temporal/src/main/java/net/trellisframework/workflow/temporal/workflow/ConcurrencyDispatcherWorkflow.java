@@ -1,106 +1,119 @@
 package net.trellisframework.workflow.temporal.workflow;
 
 import io.temporal.api.enums.v1.ParentClosePolicy;
-import io.temporal.workflow.*;
+import io.temporal.common.converter.EncodedValues;
+import io.temporal.workflow.ChildWorkflowOptions;
+import io.temporal.workflow.ChildWorkflowStub;
+import io.temporal.workflow.DynamicSignalHandler;
+import io.temporal.workflow.Workflow;
 
 import java.time.Duration;
 import java.util.*;
 
-@WorkflowInterface
-public interface ConcurrencyDispatcherWorkflow {
+public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
 
-    @WorkflowMethod
-    void run(int limit, int pageSize, List<List<Object>> initialQueue);
+    public static final String CLASS_NAME = ConcurrencyDispatcherWorkflow.class.getName();
+    private static final int MAX_HISTORY = 5000;
 
-    @SignalMethod
-    void dispatch(List<Object> workArgs);
+    private final Queue<List<Object>> queue = new LinkedList<>();
+    private final Set<String> activeChildren = new HashSet<>();
+    private int limit = 3;
+    private int pageSize = 50;
+    private int childCounter = 0;
 
-    @SignalMethod
-    void reportCompletion(String childWorkflowId);
+    public void run(EncodedValues args) {
+        this.limit = args.get(1, int.class);
+        this.pageSize = args.get(2, int.class);
 
-    @QueryMethod
-    int getPendingCount();
+        List<List<Object>> initialQueue = null;
+        if (args.getSize() > 3) {
+            try { initialQueue = args.get(3, List.class); } catch (Exception ignored) {}
+        }
+        if (initialQueue != null)
+            initialQueue.forEach(queue::add);
 
-    class Impl implements ConcurrencyDispatcherWorkflow {
+        List<String> previousChildren = null;
+        if (args.getSize() > 4) {
+            try { previousChildren = args.get(4, List.class); } catch (Exception ignored) {}
+        }
+        if (previousChildren != null)
+            activeChildren.addAll(previousChildren);
 
-        private final Queue<List<Object>> queue = new LinkedList<>();
-        private final Set<String> activeChildren = new HashSet<>();
-        private int limit = 3;
-        private int pageSize = 50;
-        private int startedInThisRun = 0;
+        int idleCount = 0;
 
-        @Override
-        public void run(int limit, int pageSize, List<List<Object>> initialQueue) {
-            this.limit = limit;
-            this.pageSize = pageSize;
-            if (initialQueue != null)
-                initialQueue.forEach(queue::add);
+        while (true) {
+            // Start children up to limit
+            while (!queue.isEmpty() && activeChildren.size() < limit) {
+                startChild(queue.poll());
+                idleCount = 0;
+            }
 
-            while (true) {
-                boolean changed = Workflow.await(Duration.ofMinutes(5),
-                        () -> !queue.isEmpty() || activeChildren.isEmpty() || shouldContinueAsNew());
+            // ContinueAsNew when history getting large
+            if (Workflow.getInfo().getHistoryLength() > MAX_HISTORY) {
+                Workflow.continueAsNew(CLASS_NAME, limit, pageSize,
+                        new ArrayList<>(queue), new ArrayList<>(activeChildren));
+                return;
+            }
 
-                if (!changed && queue.isEmpty() && activeChildren.isEmpty())
+            // Idle: no queue, no children → wait 5 min then terminate
+            if (queue.isEmpty() && activeChildren.isEmpty()) {
+                idleCount++;
+                if (idleCount >= 30)
                     return;
+            } else {
+                idleCount = 0;
+            }
 
-                if (shouldContinueAsNew()) {
-                    Workflow.newContinueAsNewStub(ConcurrencyDispatcherWorkflow.class)
-                            .run(limit, pageSize, new ArrayList<>(queue));
-                    return;
-                }
+            Workflow.sleep(Duration.ofSeconds(10));
+        }
+    }
 
-                while (!queue.isEmpty() && activeChildren.size() < limit) {
-                    startChild(queue.poll());
-                }
+    @Override
+    public void handle(String signalName, EncodedValues args) {
+        switch (signalName) {
+            case "dispatch" -> {
+                List<Object> workArgs = args.get(0, List.class);
+                queue.add(workArgs);
+            }
+            case "reportCompletion" -> {
+                String childWorkflowId = args.get(0, String.class);
+                activeChildren.remove(childWorkflowId);
             }
         }
+    }
 
-        @Override
-        public void dispatch(List<Object> workArgs) {
-            queue.add(workArgs);
-        }
-
-        @Override
-        public void reportCompletion(String childWorkflowId) {
-            activeChildren.remove(childWorkflowId);
-        }
-
-        @Override
-        public int getPendingCount() {
+    public Object handleQuery(String queryType, EncodedValues args) {
+        if ("getPendingCount".equals(queryType)) {
             return queue.size() + activeChildren.size();
         }
+        throw new IllegalArgumentException("Unknown query type: " + queryType);
+    }
 
-        private void startChild(List<Object> workArgs) {
-            String childId = extractChildId(workArgs) + "-" + Workflow.randomUUID();
-            String dispatcherId = Workflow.getInfo().getWorkflowId();
+    private void startChild(List<Object> workArgs) {
+        String childId = extractChildId(workArgs) + "-" + Workflow.currentTimeMillis() + "-" + (childCounter++);
+        String dispatcherId = Workflow.getInfo().getWorkflowId();
 
-            ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
-                    .setWorkflowId(childId)
-                    .setTaskQueue(Workflow.getInfo().getTaskQueue())
-                    .setParentClosePolicy(ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON)
-                    .setWorkflowExecutionTimeout(Duration.ofHours(24))
-                    .build();
+        ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
+                .setWorkflowId(childId)
+                .setTaskQueue(Workflow.getInfo().getTaskQueue())
+                .setParentClosePolicy(ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON)
+                .setWorkflowExecutionTimeout(Duration.ofHours(24))
+                .build();
 
-            ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
-            List<Object> argsWithDispatcher = new ArrayList<>(workArgs);
-            argsWithDispatcher.add(dispatcherId);
-            argsWithDispatcher.add(childId);
-            stub.executeAsync(Object.class, argsWithDispatcher.toArray());
-            stub.getExecution().get();
-            activeChildren.add(childId);
-            startedInThisRun++;
+        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
+        List<Object> argsWithDispatcher = new ArrayList<>(workArgs);
+        argsWithDispatcher.add(dispatcherId);
+        argsWithDispatcher.add(childId);
+        stub.executeAsync(Object.class, argsWithDispatcher.toArray());
+        stub.getExecution().get();
+        activeChildren.add(childId);
+    }
+
+    private String extractChildId(List<Object> workArgs) {
+        if (!workArgs.isEmpty() && workArgs.get(0) instanceof String className) {
+            int dot = className.lastIndexOf('.');
+            return dot >= 0 ? className.substring(dot + 1) : className;
         }
-
-        private boolean shouldContinueAsNew() {
-            return startedInThisRun >= pageSize && activeChildren.isEmpty() && !queue.isEmpty();
-        }
-
-        private String extractChildId(List<Object> workArgs) {
-            if (!workArgs.isEmpty() && workArgs.get(0) instanceof String className) {
-                int dot = className.lastIndexOf('.');
-                return dot >= 0 ? className.substring(dot + 1) : className;
-            }
-            return "child";
-        }
+        return "child";
     }
 }

@@ -14,6 +14,6 @@ public class WorkflowProperties {
     private int retentionDays = 7;
     private int maxConcurrentWorkflowTasks = 200;
     private int maxConcurrentActivities = 200;
-    private long deadlockDetectionTimeout = 60000;
+    private long deadlockDetectionTimeout = 120000;
 
 }

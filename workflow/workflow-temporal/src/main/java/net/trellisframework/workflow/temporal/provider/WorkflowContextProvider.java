@@ -15,6 +15,7 @@ import net.trellisframework.workflow.temporal.annotation.Activity;
 import net.trellisframework.workflow.temporal.payload.ClosePolicy;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
+import net.trellisframework.workflow.temporal.workflow.ConcurrencyDispatcherWorkflow;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -256,8 +257,8 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
                     .setWorkflowExecutionTimeout(Duration.ofHours(24))
                     .setWorkflowTaskTimeout(Duration.ofSeconds(120))
                     .build();
-            ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("ConcurrencyDispatcherWorkflow", opts);
-            stub.executeAsync(Void.class, option.getConcurrencyLimit(), 50, new ArrayList<>(List.of(workArgs)));
+            ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
+            stub.executeAsync(Void.class, ConcurrencyDispatcherWorkflow.CLASS_NAME, option.getConcurrencyLimit(), 50, new ArrayList<>(List.of(workArgs)));
             stub.getExecution().get();
         } catch (ChildWorkflowFailure e) {
             ExternalWorkflowStub ext = Workflow.newUntypedExternalWorkflowStub(dispatcherId);

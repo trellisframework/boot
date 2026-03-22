@@ -19,10 +19,15 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     private Object workflowBean;
     private String workflowClassName;
     private WorkflowOption workflowOption;
+    private ConcurrencyDispatcherWorkflow dispatcher;
 
     @Override
     public Object execute(EncodedValues args) {
         workflowClassName = args.get(0, String.class);
+        if (ConcurrencyDispatcherWorkflow.CLASS_NAME.equals(workflowClassName)) {
+            return executeDispatcher(args);
+        }
+
         String dispatcherId = extractDispatcherId(args);
         String childId = extractChildId(args);
 
@@ -82,6 +87,14 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Workflow class not found: " + workflowClassName, e);
         }
+    }
+
+    private Object executeDispatcher(EncodedValues args) {
+        dispatcher = new ConcurrencyDispatcherWorkflow();
+        Workflow.registerListener(dispatcher);
+        Workflow.registerListener(this);
+        dispatcher.run(args);
+        return null;
     }
 
     private String extractDispatcherId(EncodedValues args) {
@@ -148,6 +161,9 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
 
     @Override
     public Object handle(String queryType, EncodedValues args) {
+        if (dispatcher != null) {
+            return dispatcher.handleQuery(queryType, args);
+        }
         if (workflowBean instanceof Queryable queryable) {
             Object[] queryArgs = new Object[args.getSize()];
             for (int i = 0; i < args.getSize(); i++) {
