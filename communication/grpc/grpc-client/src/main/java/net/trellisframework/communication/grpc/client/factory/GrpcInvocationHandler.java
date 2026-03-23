@@ -8,6 +8,7 @@ import io.grpc.stub.AbstractBlockingStub;
 import net.trellisframework.communication.grpc.client.annotation.GrpcMethod;
 import net.trellisframework.communication.grpc.client.constant.Messages;
 import net.trellisframework.communication.grpc.client.payload.MethodInfo;
+import net.trellisframework.http.exception.ConflictException;
 import net.trellisframework.http.exception.HttpErrorMessage;
 import net.trellisframework.http.exception.HttpException;
 import net.trellisframework.util.json.JsonUtil;
@@ -51,7 +52,7 @@ public class GrpcInvocationHandler implements InvocationHandler {
             Method newBlockingStubMethod = serviceClass.getDeclaredMethod("newBlockingStub", Channel.class);
             return (AbstractBlockingStub<?>) newBlockingStubMethod.invoke(null, channel);
         } catch (Exception e) {
-            throw new ProcessingException(Messages.FAILED_TO_CREATE_GRPC_STUB);
+            throw new ConflictException(Messages.FAILED_TO_CREATE_GRPC_STUB);
         }
     }
 
@@ -64,7 +65,7 @@ public class GrpcInvocationHandler implements InvocationHandler {
                 String message = Optional.ofNullable(ex.getStatus().getDescription()).orElse(e.getMessage());
                 throw new HttpException(JsonUtil.toObject(message, clazz));
             }
-            throw new ProcessingException(Messages.FAILED_TO_INVOKE_GRPC_METHOD);
+            throw new ConflictException(Messages.FAILED_TO_INVOKE_GRPC_METHOD);
         } finally {
             channel.shutdown();
         }
