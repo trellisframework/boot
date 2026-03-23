@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class NotFoundException extends HttpException {
     }
 
     public NotFoundException(String message) {
+        super(message, HttpStatus.NOT_FOUND);
+    }
+
+    public NotFoundException(Error message) {
         super(message, HttpStatus.NOT_FOUND);
     }
 

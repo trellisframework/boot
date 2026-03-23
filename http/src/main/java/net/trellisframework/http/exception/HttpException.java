@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import okhttp3.Protocol;
 import okhttp3.internal.http.RealResponseBody;
@@ -20,12 +21,20 @@ public class HttpException extends retrofit2.HttpException {
 
     private final HttpErrorMessage errorMessage;
 
-    public HttpException(MessageHandler message, HttpStatus status) {
-        this(new HttpErrorMessage(Optional.ofNullable(status).orElse(HttpStatus.INTERNAL_SERVER_ERROR), message.getMessage(), message.getCode()));
+    public HttpException(MessageHandler message, HttpStatus httpStatus) {
+        this(new HttpErrorMessage(Optional.ofNullable(httpStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR), message.getMessage(), message.getCode()));
     }
 
-    public HttpException(String message, HttpStatus status) {
-        this(new HttpErrorMessage(Optional.ofNullable(status).orElse(HttpStatus.INTERNAL_SERVER_ERROR), message, null));
+    public HttpException(String message, HttpStatus httpStatus) {
+        this(new HttpErrorMessage(Optional.ofNullable(httpStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR), message));
+    }
+
+    public HttpException(Error error, HttpStatus httpStatus) {
+        this(new HttpErrorMessage(Optional.ofNullable(httpStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR), error.getMessage(), error.getCode()));
+    }
+
+    public HttpException(String message, Integer status, HttpStatus httpStatus) {
+        this(new HttpErrorMessage(Optional.ofNullable(httpStatus).orElse(HttpStatus.INTERNAL_SERVER_ERROR), message, status));
     }
 
     public HttpException(HttpErrorMessage error) {

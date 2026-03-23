@@ -19,14 +19,32 @@ public interface MessageHandler {
         return StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result;
     }
 
+    default Error getError(Object... var1) {
+        String result = MessageHelper.getMessage(Language.EN, name(), var1);
+        Integer code = MessageHelper.getCode(name());
+        return Error.of(code, StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result);
+    }
+
     default String getMessage(Language language) {
         String result = MessageHelper.getMessage(language, name());
         return StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result;
     }
 
+    default Error getError(Language language) {
+        String result = MessageHelper.getMessage(language, name());
+        Integer code = MessageHelper.getCode(name());
+        return Error.of(code, StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result);
+    }
+
     default String getMessage(Language language, Object... var1) {
         String result = MessageHelper.getMessage(language, name(), var1);
         return StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result;
+    }
+
+    default Error getError(Language language, Object... var1) {
+        String result = MessageHelper.getMessage(language, name(), var1);
+        Integer code = MessageHelper.getCode(name());
+        return Error.of(code, StringUtils.isEmpty(result) ? this.name().replace('_', ' ').toLowerCase() : result);
     }
 
 }

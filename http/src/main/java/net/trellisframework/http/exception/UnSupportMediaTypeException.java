@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class UnSupportMediaTypeException extends HttpException {
     }
 
     public UnSupportMediaTypeException(String message) {
+        super(message, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    public UnSupportMediaTypeException(Error message) {
         super(message, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
 

@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class InsufficientStorageException extends HttpException {
     }
 
     public InsufficientStorageException(String message) {
+        super(message, HttpStatus.INSUFFICIENT_STORAGE);
+    }
+
+    public InsufficientStorageException(Error message) {
         super(message, HttpStatus.INSUFFICIENT_STORAGE);
     }
 

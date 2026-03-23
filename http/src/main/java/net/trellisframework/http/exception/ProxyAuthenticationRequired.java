@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class ProxyAuthenticationRequired extends HttpException {
     }
 
     public ProxyAuthenticationRequired(String message) {
+        super(message, HttpStatus.PROXY_AUTHENTICATION_REQUIRED);
+    }
+
+    public ProxyAuthenticationRequired(Error message) {
         super(message, HttpStatus.PROXY_AUTHENTICATION_REQUIRED);
     }
 

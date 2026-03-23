@@ -10,7 +10,6 @@ import net.trellisframework.communication.grpc.client.constant.Messages;
 import net.trellisframework.communication.grpc.client.payload.MethodInfo;
 import net.trellisframework.http.exception.HttpErrorMessage;
 import net.trellisframework.http.exception.HttpException;
-import net.trellisframework.http.exception.ProcessingException;
 import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.util.string.StringUtil;
 

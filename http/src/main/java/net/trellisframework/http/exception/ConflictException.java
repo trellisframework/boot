@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class ConflictException extends HttpException {
     }
 
     public ConflictException(String message) {
+        super(message, HttpStatus.CONFLICT);
+    }
+
+    public ConflictException(Error message) {
         super(message, HttpStatus.CONFLICT);
     }
 

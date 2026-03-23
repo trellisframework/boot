@@ -38,11 +38,6 @@ public class HttpExceptionHandling {
         return handleException(ex, HttpStatus.BAD_REQUEST, req);
     }
 
-    @ExceptionHandler({BandwidthLimitExceededException.class})
-    public ResponseEntity<Object> handleBandwidthLimitExceededException(BandwidthLimitExceededException ex, HttpServletRequest req) {
-        return handleException(ex, HttpStatus.BANDWIDTH_LIMIT_EXCEEDED, req);
-    }
-
     @ExceptionHandler({ConflictException.class})
     public ResponseEntity<Object> handleConflictException(ConflictException ex, HttpServletRequest req) {
         return handleException(ex, HttpStatus.CONFLICT, req);
@@ -78,11 +73,6 @@ public class HttpExceptionHandling {
         return handleException(ex, HttpStatus.NOT_ACCEPTABLE, req);
     }
 
-    @ExceptionHandler({NotExtendedException.class})
-    public ResponseEntity<Object> handleNotExtendedException(NotExtendedException ex, HttpServletRequest req) {
-        return handleException(ex, HttpStatus.NOT_EXTENDED, req);
-    }
-
     @ExceptionHandler({NotFoundException.class})
     public ResponseEntity<Object> handleNotFoundException(NotFoundException ex, HttpServletRequest req) {
         return handleException(ex, HttpStatus.NOT_FOUND, req);
@@ -93,11 +83,6 @@ public class HttpExceptionHandling {
         return handleException(ex, HttpStatus.NOT_IMPLEMENTED, req);
     }
 
-    @ExceptionHandler({PayloadTooLargeException.class})
-    public ResponseEntity<Object> handlePayloadTooLargeException(PayloadTooLargeException ex, HttpServletRequest req) {
-        return handleException(ex, HttpStatus.PAYLOAD_TOO_LARGE, req);
-    }
-
     @ExceptionHandler({PaymentRequiredException.class})
     public ResponseEntity<Object> handlePaymentRequiredException(PaymentRequiredException ex, HttpServletRequest req) {
         return handleException(ex, HttpStatus.PAYMENT_REQUIRED, req);
@@ -106,11 +91,6 @@ public class HttpExceptionHandling {
     @ExceptionHandler({PreConditionRequiredException.class})
     public ResponseEntity<Object> handlePreConditionRequiredException(PreConditionRequiredException ex, HttpServletRequest req) {
         return handleException(ex, HttpStatus.PRECONDITION_REQUIRED, req);
-    }
-
-    @ExceptionHandler({ProcessingException.class})
-    public ResponseEntity<Object> handleProcessingException(ProcessingException ex, HttpServletRequest req) {
-        return handleException(ex, HttpStatus.PROCESSING, req);
     }
 
     @ExceptionHandler({ProxyAuthenticationRequired.class})

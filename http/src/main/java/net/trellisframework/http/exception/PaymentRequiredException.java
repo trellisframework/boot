@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class PaymentRequiredException extends HttpException {
     }
 
     public PaymentRequiredException(String message) {
+        super(message, HttpStatus.PAYMENT_REQUIRED);
+    }
+
+    public PaymentRequiredException(Error message) {
         super(message, HttpStatus.PAYMENT_REQUIRED);
     }
 

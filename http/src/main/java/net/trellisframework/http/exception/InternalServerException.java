@@ -1,5 +1,6 @@
 package net.trellisframework.http.exception;
 
+import net.trellisframework.core.message.Error;
 import net.trellisframework.core.message.MessageHandler;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,10 @@ public class InternalServerException extends HttpException {
     }
 
     public InternalServerException(String message) {
+        super(message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    public InternalServerException(Error message) {
         super(message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
