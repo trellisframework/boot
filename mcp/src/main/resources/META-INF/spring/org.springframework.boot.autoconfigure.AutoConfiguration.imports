@@ -1,1 +1,2 @@
 net.trellisframework.mcp.autoconfigure.McpScannerAutoConfiguration
+net.trellisframework.mcp.autoconfigure.McpSessionCleanupAutoConfiguration
