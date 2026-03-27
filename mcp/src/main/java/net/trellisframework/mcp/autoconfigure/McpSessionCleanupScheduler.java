@@ -47,7 +47,7 @@ public class McpSessionCleanupScheduler {
                 McpStreamableServerSession session = sessions.remove(entry.getKey());
                 if (session != null) {
                     try {
-                        session.closeGracefully().block(Duration.ofSeconds(5));
+                        session.close();
                     } catch (Exception e) {
                         log.debug("Error closing session {}: {}", entry.getKey(), e.getMessage());
                     }
