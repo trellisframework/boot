@@ -52,7 +52,7 @@ public class OkHttpProvider {
                 .connectTimeout(connectTimeout, TimeUnit.SECONDS)
                 .writeTimeout(writeTimeout, TimeUnit.SECONDS)
                 .readTimeout(readTimeout, TimeUnit.SECONDS)
-                .connectionPool(new ConnectionPool(5, 10L, TimeUnit.SECONDS))
+                .connectionPool(new ConnectionPool(50, 60L, TimeUnit.SECONDS))
                 .proxy(proxy);
 
         Optional.ofNullable(interceptors).ifPresent(x -> x.forEach(builder::addInterceptor));
