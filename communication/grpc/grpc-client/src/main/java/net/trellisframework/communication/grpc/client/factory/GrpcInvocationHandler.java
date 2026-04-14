@@ -13,6 +13,7 @@ import net.trellisframework.http.exception.HttpErrorMessage;
 import net.trellisframework.http.exception.HttpException;
 import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.util.string.StringUtil;
+import org.springframework.http.HttpStatus;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -63,7 +64,9 @@ public class GrpcInvocationHandler implements InvocationHandler {
         } catch (Exception e) {
             if (e instanceof InvocationTargetException p && p.getTargetException() instanceof StatusRuntimeException ex) {
                 String message = Optional.ofNullable(ex.getStatus().getDescription()).orElse(e.getMessage());
-                throw new HttpException(JsonUtil.toObject(message, clazz));
+                throw new HttpException(Optional.<HttpErrorMessage>ofNullable(JsonUtil.toObject(message, clazz))
+                        .filter(x -> x.getHttpStatus() != null)
+                        .orElseGet(() -> new HttpErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, message)));
             }
             throw new ConflictException(Messages.FAILED_TO_INVOKE_GRPC_METHOD);
         } finally {
