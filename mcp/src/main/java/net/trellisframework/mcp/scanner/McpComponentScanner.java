@@ -3,6 +3,7 @@ package net.trellisframework.mcp.scanner;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 import net.trellisframework.mcp.annotation.McpResource;
@@ -57,6 +58,29 @@ public class McpComponentScanner {
     }
 
     @Bean
+    public List<McpStatelessServerFeatures.SyncToolSpecification> mcpStatelessToolSpecifications(ApplicationContext context) {
+        List<OrderedItem<McpStatelessServerFeatures.SyncToolSpecification>> items = new ArrayList<>();
+        for (String beanName : context.getBeanDefinitionNames()) {
+            Object bean;
+            try {
+                bean = context.getBean(beanName);
+            } catch (Exception e) {
+                continue;
+            }
+            Class<?> targetClass = AopUtils.getTargetClass(bean);
+            for (Method method : targetClass.getDeclaredMethods()) {
+                McpTool annotation = method.getAnnotation(McpTool.class);
+                if (annotation != null) {
+                    items.add(new OrderedItem<>(annotation.index(), createStatelessToolSpec(bean, method, annotation)));
+                    log.info("Registered MCP stateless tool: {}", annotation.name());
+                }
+            }
+        }
+        items.sort(Comparator.comparingInt(OrderedItem::order));
+        return items.stream().map(OrderedItem::item).toList();
+    }
+
+    @Bean
     public List<McpServerFeatures.SyncResourceSpecification> mcpResourceSpecifications(ApplicationContext context) {
         List<McpServerFeatures.SyncResourceSpecification> items = new ArrayList<>();
 
@@ -80,6 +104,32 @@ public class McpComponentScanner {
 
         // 2. Scan @McpResourceEndpoint interfaces
         scanResourceEndpointInterfaces(context, items);
+
+        return items;
+    }
+
+    @Bean
+    public List<McpStatelessServerFeatures.SyncResourceSpecification> mcpStatelessResourceSpecifications(ApplicationContext context) {
+        List<McpStatelessServerFeatures.SyncResourceSpecification> items = new ArrayList<>();
+
+        for (String beanName : context.getBeanDefinitionNames()) {
+            Object bean;
+            try {
+                bean = context.getBean(beanName);
+            } catch (Exception e) {
+                continue;
+            }
+            Class<?> targetClass = AopUtils.getTargetClass(bean);
+            for (Method method : targetClass.getDeclaredMethods()) {
+                McpResource annotation = method.getAnnotation(McpResource.class);
+                if (annotation != null) {
+                    items.add(createStatelessResourceSpec(bean, method, annotation));
+                    log.info("Registered MCP stateless resource: {} ({})", annotation.name(), annotation.uri());
+                }
+            }
+        }
+
+        scanStatelessResourceEndpointInterfaces(context, items);
 
         return items;
     }
@@ -160,6 +210,23 @@ public class McpComponentScanner {
 
     private McpServerFeatures.SyncToolSpecification createToolSpec(Object bean, Method method, McpTool annotation) {
         boolean hasSchemaFile = !annotation.inputSchemaFile().isEmpty();
+        McpSchema.Tool tool = buildTool(method, annotation, hasSchemaFile);
+        return new McpServerFeatures.SyncToolSpecification(
+                tool,
+                (McpSyncServerExchange exchange, Map<String, Object> arguments) -> invokeTool(bean, method, arguments, hasSchemaFile)
+        );
+    }
+
+    private McpStatelessServerFeatures.SyncToolSpecification createStatelessToolSpec(Object bean, Method method, McpTool annotation) {
+        boolean hasSchemaFile = !annotation.inputSchemaFile().isEmpty();
+        McpSchema.Tool tool = buildTool(method, annotation, hasSchemaFile);
+        return new McpStatelessServerFeatures.SyncToolSpecification(
+                tool,
+                (context, request) -> invokeTool(bean, method, request.arguments(), hasSchemaFile)
+        );
+    }
+
+    private McpSchema.Tool buildTool(Method method, McpTool annotation, boolean hasSchemaFile) {
         McpSchema.JsonSchema inputSchema = hasSchemaFile
                 ? buildInputSchemaFromFile(annotation.inputSchemaFile())
                 : buildInputSchema(method);
@@ -181,7 +248,7 @@ public class McpComponentScanner {
             log.info("Tool '{}' inputSchema: {}", annotation.name(), new ObjectMapper().writeValueAsString(inputSchema));
         } catch (Exception ignored) {}
 
-        McpSchema.Tool tool = new McpSchema.Tool(
+        return new McpSchema.Tool(
                 annotation.name(),
                 null,
                 description,
@@ -190,29 +257,129 @@ public class McpComponentScanner {
                 toolAnnotations,
                 null
         );
+    }
 
-        return new McpServerFeatures.SyncToolSpecification(
-                tool,
-                (McpSyncServerExchange exchange, Map<String, Object> arguments) -> {
-                    try {
-                        Object[] args;
-                        if (hasSchemaFile && method.getParameterCount() == 1 && method.getParameterTypes()[0] == String.class) {
-                            // Schema file defines the structure; serialize entire arguments map to JSON string
-                            String jsonArgs = new ObjectMapper().writeValueAsString(arguments);
-                            args = new Object[]{jsonArgs};
-                        } else {
-                            args = resolveArguments(method, arguments);
+    private McpSchema.CallToolResult invokeTool(Object bean, Method method, Map<String, Object> arguments, boolean hasSchemaFile) {
+        try {
+            Object[] args;
+            if (hasSchemaFile && method.getParameterCount() == 1 && method.getParameterTypes()[0] == String.class) {
+                String jsonArgs = new ObjectMapper().writeValueAsString(arguments);
+                args = new Object[]{jsonArgs};
+            } else {
+                args = resolveArguments(method, arguments);
+            }
+            ReflectionUtils.makeAccessible(method);
+            Object result = method.invoke(bean, args);
+            String text = result != null ? result.toString() : "";
+            return new McpSchema.CallToolResult(text, false);
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            return new McpSchema.CallToolResult(cause.getMessage(), true);
+        }
+    }
+
+    private void scanStatelessResourceEndpointInterfaces(ApplicationContext context, List<McpStatelessServerFeatures.SyncResourceSpecification> items) {
+        List<String> basePackages;
+        try {
+            basePackages = AutoConfigurationPackages.get(context);
+        } catch (IllegalStateException e) {
+            return;
+        }
+
+        ClassPathScanningCandidateComponentProvider provider = new ClassPathScanningCandidateComponentProvider(false) {
+            @Override
+            protected boolean isCandidateComponent(AnnotatedBeanDefinition beanDefinition) {
+                return beanDefinition.getMetadata().isInterface();
+            }
+        };
+        provider.addIncludeFilter(new AnnotationTypeFilter(McpResourceEndpoint.class));
+
+        for (String basePackage : basePackages) {
+            for (BeanDefinition bd : provider.findCandidateComponents(basePackage)) {
+                try {
+                    Class<?> iface = Class.forName(bd.getBeanClassName());
+                    for (Method method : iface.getDeclaredMethods()) {
+                        McpResource annotation = method.getAnnotation(McpResource.class);
+                        if (annotation != null) {
+                            items.add(createStatelessResourceSpecFromAnnotation(annotation));
+                            log.info("Registered MCP stateless resource: {} ({})", annotation.name(), annotation.uri());
                         }
-                        ReflectionUtils.makeAccessible(method);
-                        Object result = method.invoke(bean, args);
-                        String text = result != null ? result.toString() : "";
-                        return new McpSchema.CallToolResult(text, false);
-                    } catch (Exception e) {
-                        Throwable cause = e.getCause() != null ? e.getCause() : e;
-                        return new McpSchema.CallToolResult(cause.getMessage(), true);
                     }
+                } catch (ClassNotFoundException e) {
+                    log.warn("Could not load @McpResourceEndpoint interface: {}", bd.getBeanClassName(), e);
                 }
+            }
+        }
+    }
+
+    private McpStatelessServerFeatures.SyncResourceSpecification createStatelessResourceSpecFromAnnotation(McpResource annotation) {
+        McpSchema.Resource resource = buildResource(annotation);
+        boolean hasValue = !annotation.value().isEmpty();
+        boolean hasFile = !annotation.file().isEmpty();
+        return new McpStatelessServerFeatures.SyncResourceSpecification(
+                resource,
+                (context, request) -> readAnnotationResource(annotation, request.uri(), hasValue, hasFile)
         );
+    }
+
+    private McpStatelessServerFeatures.SyncResourceSpecification createStatelessResourceSpec(Object bean, Method method, McpResource annotation) {
+        McpSchema.Resource resource = buildResource(annotation);
+        boolean hasValue = !annotation.value().isEmpty();
+        boolean hasFile = !annotation.file().isEmpty();
+        return new McpStatelessServerFeatures.SyncResourceSpecification(
+                resource,
+                (context, request) -> readBeanResource(bean, method, annotation, request.uri(), hasValue, hasFile)
+        );
+    }
+
+    private McpSchema.Resource buildResource(McpResource annotation) {
+        return new McpSchema.Resource(
+                annotation.uri(),
+                annotation.name(),
+                annotation.description(),
+                annotation.mimeType(),
+                null
+        );
+    }
+
+    private McpSchema.ReadResourceResult readAnnotationResource(McpResource annotation, String requestUri, boolean hasValue, boolean hasFile) {
+        try {
+            log.info("resources/read requested URI='{}' → handler URI='{}'", requestUri, annotation.uri());
+            String text;
+            if (hasValue) {
+                text = annotation.value();
+            } else if (hasFile) {
+                text = readClasspathFile(annotation.file(), annotation.mimeType());
+            } else {
+                throw new RuntimeException("@McpResourceEndpoint method must have 'file' or 'value' set: " + annotation.uri());
+            }
+            McpSchema.ResourceContents contents = new McpSchema.TextResourceContents(annotation.uri(), annotation.mimeType(), text);
+            return new McpSchema.ReadResourceResult(List.of(contents));
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            throw new RuntimeException("Failed to read resource " + annotation.uri() + ": " + cause.getMessage(), cause);
+        }
+    }
+
+    private McpSchema.ReadResourceResult readBeanResource(Object bean, Method method, McpResource annotation, String requestUri, boolean hasValue, boolean hasFile) {
+        try {
+            log.info("resources/read requested URI='{}' → handler URI='{}'", requestUri, annotation.uri());
+            String text;
+            if (hasValue) {
+                text = annotation.value();
+            } else if (hasFile) {
+                text = readClasspathFile(annotation.file(), annotation.mimeType());
+            } else {
+                ReflectionUtils.makeAccessible(method);
+                Object result = method.invoke(bean);
+                text = result != null ? result.toString() : "";
+            }
+            McpSchema.ResourceContents contents = new McpSchema.TextResourceContents(annotation.uri(), annotation.mimeType(), text);
+            return new McpSchema.ReadResourceResult(List.of(contents));
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            throw new RuntimeException("Failed to read resource " + annotation.uri() + ": " + cause.getMessage(), cause);
+        }
     }
 
     private McpServerFeatures.SyncResourceSpecification createResourceSpec(Object bean, Method method, McpResource annotation) {

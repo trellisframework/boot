@@ -9,4 +9,7 @@ import java.time.Duration;
 @Data
 public class McpSessionCleanupProperties {
     private Duration maxAge = Duration.ofMinutes(30);
+    private Duration idleTimeout;
+    private Duration cleanupInterval = Duration.ofMinutes(5);
+    private boolean interceptUnauthorized = true;
 }
