@@ -134,7 +134,6 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private String extractDispatcherId(EncodedValues args) {
-        if (cliArgs != null) return null;
         if (args.getSize() >= 3) {
             try {
                 String val = args.get(args.getSize() - 2, String.class);
@@ -146,7 +145,6 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private String extractChildId(EncodedValues args) {
-        if (cliArgs != null) return null;
         if (args.getSize() >= 3) {
             try {
                 return args.get(args.getSize() - 1, String.class);
@@ -163,7 +161,6 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private WorkflowOption extractWorkflowOption(EncodedValues args) {
-        if (cliArgs != null) return null;
         if (args.getSize() > 1) {
             try {
                 return args.get(args.getSize() - 1, WorkflowOption.class);
