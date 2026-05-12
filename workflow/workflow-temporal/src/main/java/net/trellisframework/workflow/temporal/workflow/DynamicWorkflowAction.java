@@ -192,9 +192,8 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private Object arg(EncodedValues args, int argIndex, Class<?>[] paramTypes, int typeIndex) {
-        if (cliArgs != null && argIndex < cliArgs.length) {
+        if (cliArgs != null && argIndex < cliArgs.length)
             return TypeResolver.convert(cliArgs[argIndex], paramTypes[typeIndex]);
-        }
         return TypeResolver.convert(args.get(argIndex, Object.class), paramTypes[typeIndex]);
     }
 
