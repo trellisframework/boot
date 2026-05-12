@@ -9,7 +9,12 @@ import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -20,10 +25,11 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     private String workflowClassName;
     private WorkflowOption workflowOption;
     private ConcurrencyDispatcherWorkflow dispatcher;
+    private Object[] cliArgs;
 
     @Override
     public Object execute(EncodedValues args) {
-        workflowClassName = args.get(0, String.class);
+        resolveInput(args);
         if (ConcurrencyDispatcherWorkflow.CLASS_NAME.equals(workflowClassName)) {
             return executeDispatcher(args);
         }
@@ -89,6 +95,36 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         }
     }
 
+    private void resolveInput(EncodedValues args) {
+        if (args.getSize() == 1) {
+            try {
+                List<?> dataList = extractCliDataList(args.get(0, Object.class));
+                if (dataList != null && !dataList.isEmpty() && dataList.getFirst() instanceof String) {
+                    cliArgs = dataList.toArray();
+                    workflowClassName = (String) cliArgs[0];
+                    return;
+                }
+            } catch (Exception ignored) {}
+        }
+        workflowClassName = args.get(0, String.class);
+    }
+
+    private List<?> extractCliDataList(Object obj) {
+        if (obj instanceof List<?> dataList) return dataList;
+        if (!(obj instanceof Map<?, ?> root)) return null;
+        if (!(root.get("payloads") instanceof List<?> payloadsList) || payloadsList.isEmpty()) return null;
+        if (!(payloadsList.getFirst() instanceof Map<?, ?> payload0)) return null;
+        Object data = payload0.get("data");
+        if (data instanceof List<?> dataList) return dataList;
+        if (data instanceof String base64Data) {
+            try {
+                byte[] decoded = Base64.getDecoder().decode(base64Data);
+                return new ObjectMapper().readValue(decoded, List.class);
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
     private Object executeDispatcher(EncodedValues args) {
         dispatcher = new ConcurrencyDispatcherWorkflow();
         Workflow.registerListener(dispatcher);
@@ -98,6 +134,7 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private String extractDispatcherId(EncodedValues args) {
+        if (cliArgs != null) return null;
         if (args.getSize() >= 3) {
             try {
                 String val = args.get(args.getSize() - 2, String.class);
@@ -109,6 +146,7 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private String extractChildId(EncodedValues args) {
+        if (cliArgs != null) return null;
         if (args.getSize() >= 3) {
             try {
                 return args.get(args.getSize() - 1, String.class);
@@ -125,6 +163,7 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private WorkflowOption extractWorkflowOption(EncodedValues args) {
+        if (cliArgs != null) return null;
         if (args.getSize() > 1) {
             try {
                 return args.get(args.getSize() - 1, WorkflowOption.class);
@@ -156,6 +195,9 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     }
 
     private Object arg(EncodedValues args, int argIndex, Class<?>[] paramTypes, int typeIndex) {
+        if (cliArgs != null && argIndex < cliArgs.length) {
+            return TypeResolver.convert(cliArgs[argIndex], paramTypes[typeIndex]);
+        }
         return TypeResolver.convert(args.get(argIndex, Object.class), paramTypes[typeIndex]);
     }
 
