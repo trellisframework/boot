@@ -16,10 +16,12 @@ import java.lang.reflect.Type;
 
 public final class ConverterFactory extends Converter.Factory {
 
+    private static final ConverterFactory INSTANCE = new ConverterFactory();
+
     private final ObjectMapper mapper;
 
     public static ConverterFactory create() {
-        return new ConverterFactory();
+        return INSTANCE;
     }
 
     private ConverterFactory() {
