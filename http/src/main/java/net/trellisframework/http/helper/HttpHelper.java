@@ -30,60 +30,62 @@ import java.util.function.Function;
 
 public class HttpHelper {
 
+    private static final ConverterFactory CONVERTER_FACTORY = ConverterFactory.create();
+
     static ObjectMapper mapper;
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance())
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, List<Interceptor> interceptors) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(interceptors))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, Proxy proxy, Authenticator proxyAuthenticator) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(proxy, proxyAuthenticator))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, Proxy proxy, Authenticator proxyAuthenticator, List<Interceptor> interceptors) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(proxy, proxyAuthenticator, interceptors))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, int connectTimeout, int writeTimeout, int readTimeout) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(connectTimeout, writeTimeout, readTimeout))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, int connectTimeout, int writeTimeout, int readTimeout, List<Interceptor> interceptors) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(connectTimeout, writeTimeout, readTimeout, interceptors))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, int connectTimeout, int writeTimeout, int readTimeout, Proxy proxy, Authenticator proxyAuthenticator) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(connectTimeout, writeTimeout, readTimeout, proxy, proxyAuthenticator))
                 .build().create(clazz);
     }
 
     public static <T> T getHttpInstance(String uri, Class<T> clazz, int connectTimeout, int writeTimeout, int readTimeout, Proxy proxy, Authenticator proxyAuthenticator, List<Interceptor> interceptors) {
         return new Retrofit.Builder().baseUrl(uri)
-                .addConverterFactory(ConverterFactory.create())
+                .addConverterFactory(CONVERTER_FACTORY)
                 .client(OkHttpProvider.getInstance(connectTimeout, writeTimeout, readTimeout, proxy, proxyAuthenticator, interceptors))
                 .build().create(clazz);
     }
