@@ -140,7 +140,10 @@ public final class TypeResolver {
         if (targetType instanceof Class<?> clazz) {
             return convert(value, clazz);
         }
-        return (T) value;
+        // Any other generic type (e.g. Map<K, V> or nested generics): build the full
+        // JavaType from the reflected Type so Jackson coerces nested values to their
+        // declared types instead of leaving them as raw LinkedHashMap/ArrayList.
+        return (T) JsonUtil.fromType(value, targetType);
     }
 
     private static Object convertToCollection(Object value, ParameterizedType pt) {

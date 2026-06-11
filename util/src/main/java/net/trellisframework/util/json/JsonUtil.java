@@ -11,6 +11,7 @@ import tools.jackson.databind.*;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
@@ -174,6 +175,19 @@ public class JsonUtil {
     public static <T, C extends Collection<T>> C toObject(ObjectMapper mapper, Object value, Class<C> collectionClass, JavaType javaType) {
         try {
             return mapper.convertValue(value, mapper.getTypeFactory().constructCollectionType(collectionClass, javaType));
+        } catch (Exception e) {
+            Logger.error("JsonParseException", e.getMessage());
+            return null;
+        }
+    }
+
+    public static <T> T fromType(Object value, Type type) {
+        return fromType(getMapper(), value, type);
+    }
+
+    public static <T> T fromType(ObjectMapper mapper, Object value, Type type) {
+        try {
+            return mapper.convertValue(value, mapper.getTypeFactory().constructType(type));
         } catch (Exception e) {
             Logger.error("JsonParseException", e.getMessage());
             return null;
