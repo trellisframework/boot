@@ -299,17 +299,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     private java.lang.reflect.Type getReturnType(Class<?> clazz) {
-        for (java.lang.reflect.Type type : clazz.getGenericInterfaces()) {
-            if (type instanceof java.lang.reflect.ParameterizedType pt) {
-                java.lang.reflect.Type[] typeArgs = pt.getActualTypeArguments();
-                Class<?> rawClass = (Class<?>) pt.getRawType();
-                int outputIndex = rawClass.getSimpleName().contains("Repository") ? 1 : 0;
-                if (typeArgs.length > outputIndex) {
-                    return typeArgs[outputIndex];
-                }
-            }
-        }
-        return Object.class;
+        return TypeResolver.getGenericReturnType(clazz, BaseProcess.class);
     }
 
     private ActivityOptions buildActivityOptions(Class<?> activityClass) {

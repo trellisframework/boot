@@ -24,7 +24,6 @@ import net.trellisframework.workflow.temporal.util.TypeResolver;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Optional;
@@ -268,22 +267,7 @@ public interface Workflows extends ActionContextProvider, WorkflowQuery {
     }
 
     private Type getReturnType(Class<?> clazz) {
-        Class<?> current = clazz;
-        while (current != null && current != Object.class) {
-            for (Type type : current.getGenericInterfaces()) {
-                if (type instanceof ParameterizedType pt) {
-                    Type rawType = pt.getRawType();
-                    if (rawType instanceof Class<?> rawClass && BaseWorkflowAction.class.isAssignableFrom(rawClass)) {
-                        Type[] typeArgs = pt.getActualTypeArguments();
-                        if (typeArgs.length > 0) {
-                            return typeArgs[0];
-                        }
-                    }
-                }
-            }
-            current = current.getSuperclass();
-        }
-        return Object.class;
+        return TypeResolver.getGenericReturnType(clazz, BaseWorkflowAction.class);
     }
 
 }
