@@ -51,29 +51,63 @@ public final class TypeResolver {
 
     private static Type[] resolveGenericParameterTypes(Class<?> baseInterface, Type[] genericInterfaces) {
         for (Type type : genericInterfaces) {
-            if (!(type instanceof ParameterizedType paramType)) {
-                continue;
-            }
-            if (!(paramType.getRawType() instanceof Class<?> rawClass)) {
-                continue;
-            }
-            if (!baseInterface.isAssignableFrom(rawClass)) {
+            Class<?> rawClass = toRawClass(type);
+            if (rawClass == Object.class || !baseInterface.isAssignableFrom(rawClass)) {
                 continue;
             }
 
-            Type[] typeArgs = paramType.getActualTypeArguments();
-            int skipCount = isRepositoryType(rawClass) ? 2 : 1;
-
-            if (typeArgs.length > skipCount) {
-                return extractParameterTypes(typeArgs, skipCount);
+            if (type instanceof ParameterizedType paramType) {
+                Type[] typeArgs = paramType.getActualTypeArguments();
+                int skipCount = isRepositoryType(rawClass) ? 2 : 1;
+                if (typeArgs.length > skipCount) {
+                    return extractParameterTypes(typeArgs, skipCount);
+                }
             }
 
+            // The interface is a non-parameterized sub-interface (e.g. AbstractProcessProspectWorkflow,
+            // which binds its parent's type args itself) or carries too few args here. Recurse into its
+            // own parents so the bound type args are picked up from there.
             Type[] parentResult = resolveGenericParameterTypes(baseInterface, rawClass.getGenericInterfaces());
             if (parentResult.length > 0) {
                 return parentResult;
             }
         }
         return new Type[0];
+    }
+
+    public static Type getGenericReturnType(Class<?> clazz, Class<?> baseInterface) {
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            Type result = resolveGenericReturnType(baseInterface, current.getGenericInterfaces());
+            if (result != null) {
+                return result;
+            }
+            current = current.getSuperclass();
+        }
+        return Object.class;
+    }
+
+    private static Type resolveGenericReturnType(Class<?> baseInterface, Type[] genericInterfaces) {
+        for (Type type : genericInterfaces) {
+            Class<?> rawClass = toRawClass(type);
+            if (rawClass == Object.class || !baseInterface.isAssignableFrom(rawClass)) {
+                continue;
+            }
+
+            if (type instanceof ParameterizedType paramType) {
+                Type[] typeArgs = paramType.getActualTypeArguments();
+                int outputIndex = isRepositoryType(rawClass) ? 1 : 0;
+                if (typeArgs.length > outputIndex) {
+                    return typeArgs[outputIndex];
+                }
+            }
+
+            Type parentResult = resolveGenericReturnType(baseInterface, rawClass.getGenericInterfaces());
+            if (parentResult != null) {
+                return parentResult;
+            }
+        }
+        return null;
     }
 
     private static Type[] extractParameterTypes(Type[] typeArgs, int skipCount) {
@@ -140,7 +174,10 @@ public final class TypeResolver {
         if (targetType instanceof Class<?> clazz) {
             return convert(value, clazz);
         }
-        return (T) value;
+        // Any other generic type (e.g. Map<K, V> or nested generics): build the full
+        // JavaType from the reflected Type so Jackson coerces nested values to their
+        // declared types instead of leaving them as raw LinkedHashMap/ArrayList.
+        return (T) JsonUtil.fromType(value, targetType);
     }
 
     private static Object convertToCollection(Object value, ParameterizedType pt) {
