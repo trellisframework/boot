@@ -188,25 +188,25 @@ public class HttpHelper {
 
     private static <T> Response<T> intercept(Call<T> func, Retry retry) throws IOException {
         if (retry != null) {
-        IOException lastException = null;
-        long delay = retry.getInitialDelayMillis();
-        for (int attempt = 1; attempt <= retry.getMaxAttempts(); attempt++) {
-            try {
-                Response<T> response = func.execute();
-                if (!retry.shouldRetry(response.code()) || attempt == retry.getMaxAttempts())
-                    return response;
-            } catch (IOException e) {
-                if (attempt == retry.getMaxAttempts())
-                    throw e;
-                lastException = e;
+            IOException lastException = null;
+            long delay = retry.getInitialDelayMillis();
+            for (int attempt = 1; attempt <= retry.getMaxAttempts(); attempt++) {
+                try {
+                    Response<T> response = (func.isExecuted() ? func.clone() : func).execute();
+                    if (!retry.shouldRetry(response.code()) || attempt == retry.getMaxAttempts())
+                        return response;
+                } catch (IOException e) {
+                    if (attempt == retry.getMaxAttempts())
+                        throw e;
+                    lastException = e;
+                }
+                retry.sleep(delay);
+                delay = retry.nextDelay(delay);
             }
-            retry.sleep(delay);
-            delay = retry.nextDelay(delay);
+            if (lastException != null)
+                throw lastException;
         }
-        if (lastException != null)
-            throw lastException;
-        }
-        return func.execute();
+        return (func.isExecuted() ? func.clone() : func).execute();
     }
 
     private static boolean isRedirect(Response<?> response) {
