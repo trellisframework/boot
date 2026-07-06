@@ -13,8 +13,7 @@
     <properties>
         <reflection.util.version>2.18.0</reflection.util.version>
         <reflection.version>0.10.2</reflection.version>
-        <dozer.version>5.5.1</dozer.version>
-        <jackson.version>3.0.3</jackson.version>
+        <jackson.version>3.2.0</jackson.version>
         <commons.codec.version>1.20.0</commons.codec.version>
         <common.io.version>2.21.0</common.io.version>
         <sshj.version>0.40.0</sshj.version>
