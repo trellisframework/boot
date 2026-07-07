@@ -6,6 +6,8 @@ import io.temporal.workflow.ChildWorkflowOptions;
 import io.temporal.workflow.ChildWorkflowStub;
 import io.temporal.workflow.DynamicSignalHandler;
 import io.temporal.workflow.Workflow;
+import net.trellisframework.core.log.Logger;
+import net.trellisframework.workflow.temporal.util.ConcurrencyArgs;
 
 import java.time.Duration;
 import java.util.*;
@@ -85,7 +87,7 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
 
     public Object handleQuery(String queryType, EncodedValues args) {
         if ("getPendingCount".equals(queryType)) {
-            return queue.size() + activeChildren.size();
+            return queue.size();
         }
         if ("getLimit".equals(queryType)) {
             return limit;
@@ -93,8 +95,12 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
         throw new IllegalArgumentException("Unknown query type: " + queryType);
     }
 
-    private void startChild(List<Object> workArgs) {
-        String childId = extractChildId(workArgs) + "-" + Workflow.currentTimeMillis() + "-" + (childCounter++);
+    private void startChild(List<Object> rawArgs) {
+        String idempotencyKey = ConcurrencyArgs.keyOf(rawArgs);
+        List<Object> workArgs = ConcurrencyArgs.strip(rawArgs);
+        String childId = idempotencyKey != null
+                ? extractChildId(workArgs) + "-" + idempotencyKey
+                : extractChildId(workArgs) + "-" + Workflow.currentTimeMillis() + "-" + (childCounter++);
         String dispatcherId = Workflow.getInfo().getWorkflowId();
 
         ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
@@ -108,9 +114,24 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
         List<Object> argsWithDispatcher = new ArrayList<>(workArgs);
         argsWithDispatcher.add(dispatcherId);
         argsWithDispatcher.add(childId);
-        stub.executeAsync(Object.class, argsWithDispatcher.toArray());
-        stub.getExecution().get();
-        activeChildren.add(childId);
+        try {
+            stub.executeAsync(Object.class, argsWithDispatcher.toArray());
+            stub.getExecution().get();
+            activeChildren.add(childId);
+        } catch (Exception e) {
+            if (!isAlreadyStarted(e))
+                throw e;
+            Logger.warn("ConcurrencyDispatcher", "Skipped duplicate child already running: %s", childId);
+        }
+    }
+
+    private boolean isAlreadyStarted(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String name = t.getClass().getSimpleName();
+            if (name.contains("AlreadyStarted") || name.contains("AlreadyExists"))
+                return true;
+        }
+        return false;
     }
 
     private String extractChildId(List<Object> workArgs) {

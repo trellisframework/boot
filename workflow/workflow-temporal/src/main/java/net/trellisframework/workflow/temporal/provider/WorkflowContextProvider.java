@@ -3,7 +3,6 @@ package net.trellisframework.workflow.temporal.provider;
 import io.temporal.activity.ActivityOptions;
 import io.temporal.api.enums.v1.ParentClosePolicy;
 import io.temporal.common.RetryOptions;
-import io.temporal.failure.ChildWorkflowFailure;
 import io.temporal.workflow.*;
 import net.trellisframework.context.process.*;
 import net.trellisframework.context.process.Process;
@@ -14,11 +13,11 @@ import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Activity;
 import net.trellisframework.workflow.temporal.payload.ClosePolicy;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
+import net.trellisframework.workflow.temporal.activity.DispatcherActivity;
+import net.trellisframework.workflow.temporal.util.ConcurrencyArgs;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
-import net.trellisframework.workflow.temporal.workflow.ConcurrencyDispatcherWorkflow;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -246,24 +245,10 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
     }
 
     private <O> Promise<O> dispatchWithConcurrency(Class<?> workflowClass, WorkflowOption option, Object... args) {
-        String dispatcherId = "ConcurrencyDispatcher-" + option.getConcurrencyKey();
-        List<Object> workArgs = Arrays.asList(prependClassName(workflowClass, args));
+        List<Object> workArgs = ConcurrencyArgs.withKey(Arrays.asList(prependClassName(workflowClass, args)), option.getIdempotencyKey());
 
-        try {
-            ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
-                    .setWorkflowId(dispatcherId)
-                    .setTaskQueue(Workflow.getInfo().getTaskQueue())
-                    .setParentClosePolicy(ParentClosePolicy.PARENT_CLOSE_POLICY_ABANDON)
-                    .setWorkflowExecutionTimeout(Duration.ofHours(24))
-                    .setWorkflowTaskTimeout(Duration.ofSeconds(120))
-                    .build();
-            ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
-            stub.executeAsync(Void.class, ConcurrencyDispatcherWorkflow.CLASS_NAME, option.getConcurrencyLimit(), 50, new ArrayList<>(List.of(workArgs)));
-            stub.getExecution().get();
-        } catch (ChildWorkflowFailure e) {
-            ExternalWorkflowStub ext = Workflow.newUntypedExternalWorkflowStub(dispatcherId);
-            ext.signal("dispatch", workArgs, option.getConcurrencyLimit());
-        }
+        DispatcherActivity.create().enqueue(
+                option.getConcurrencyKey(), option.getConcurrencyLimit(), 50, Workflow.getInfo().getTaskQueue(), workArgs);
 
         return Workflow.newPromise(null);
     }

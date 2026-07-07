@@ -17,6 +17,8 @@ import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 import io.temporal.worker.*;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.util.thread.Threads;
+import net.trellisframework.workflow.temporal.activity.DispatcherActivity;
+import net.trellisframework.workflow.temporal.activity.DispatcherStore;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.activity.DynamicTaskActivity;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
@@ -155,7 +157,7 @@ public class WorkflowAutoConfiguration {
                 options.setDeploymentOptions(WorkerDeploymentOptions.newBuilder().setVersion(new WorkerDeploymentVersion(taskQueue, version)).setUseVersioning(true).setDefaultVersioningBehavior(VersioningBehavior.AUTO_UPGRADE).build());
             Worker worker = factory.newWorker(taskQueue, options.build());
             worker.registerWorkflowImplementationTypes(DynamicWorkflowAction.class);
-            worker.registerActivitiesImplementations(new DynamicTaskActivity(), new DistributedLockActivity.Impl());
+            worker.registerActivitiesImplementations(new DynamicTaskActivity(), new DistributedLockActivity.Impl(), new DispatcherActivity.Impl(), new DispatcherStore.Impl());
             Logger.info("Temporal", "Worker started on queue: %s%s", taskQueue, version != null ? ", version: " + version : "");
         }
     }
