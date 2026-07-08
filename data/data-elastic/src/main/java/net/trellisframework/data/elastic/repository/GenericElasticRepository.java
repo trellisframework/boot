@@ -4,9 +4,11 @@ import co.elastic.clients.elasticsearch._types.InlineGet;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
 import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResponseItem;
 import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResult;
 import co.elastic.clients.elasticsearch.core.search.*;
 import co.elastic.clients.elasticsearch.core.update.UpdateWriteResponseBase;
+import co.elastic.clients.json.JsonpUtils;
 import co.elastic.clients.util.ObjectBuilder;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.data.core.data.repository.GenericRepository;
@@ -161,9 +163,21 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
     default <TDocument> MultiSearchResult<TDocument> msearch(Function<MsearchRequest.Builder, ObjectBuilder<MsearchRequest>> fn, Class<TDocument> clazz, Boolean hasJoin) {
         try {
             MsearchRequest.Builder builder = new MsearchRequest.Builder();
-            return hasJoin ? ElasticsearchConfig.getInstance().sirenMSearch(s -> fn.apply(builder), clazz) : ElasticsearchConfig.getInstance().msearch(s -> fn.apply(builder), clazz);
+            MultiSearchResult<TDocument> result = hasJoin ? ElasticsearchConfig.getInstance().sirenMSearch(s -> fn.apply(builder), clazz) : ElasticsearchConfig.getInstance().msearch(s -> fn.apply(builder), clazz);
+            assertNoFailure(result.responses());
+            return result;
         } catch (IOException e) {
             throw new ServiceUnavailableException(e.getMessage());
+        }
+    }
+
+    static void assertNoFailure(List<? extends MultiSearchResponseItem<?>> responses) {
+        if (responses == null) return;
+        for (var item : responses) {
+            if (item.isFailure()) {
+                Logger.error("GenericElasticRepository::msearch", "msearch item failed: " + JsonpUtils.toString(item.failure()));
+                throw new ServiceUnavailableException(item.failure().error().reason());
+            }
         }
     }
 
