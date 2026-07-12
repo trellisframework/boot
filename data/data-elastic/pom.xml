@@ -11,7 +11,7 @@
     <artifactId>data-elastic</artifactId>
     <packaging>jar</packaging>
     <properties>
-        <elastic.version>8.19.8</elastic.version>
+        <elastic.version>9.2.8</elastic.version>
     </properties>
     <dependencies>
         <dependency>
