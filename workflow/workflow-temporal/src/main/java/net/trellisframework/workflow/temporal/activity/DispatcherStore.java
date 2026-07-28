@@ -25,13 +25,8 @@ public interface DispatcherStore {
 
     int LEASE_SECONDS = DistributedLockActivity.LEASE_SECONDS;
 
-    /** Redis key prefix for a per-key waiting queue; shared so the admission-cap read can't drift from the writer. */
     String QUEUE_KEY_PREFIX = "dispatcher:queue:";
 
-    // NOTE: enqueue is intentionally NOT on this @ActivityInterface. It is called directly, in-process, by
-    // DispatcherActivity (the router activity) — never via a stub — so exposing it as an activity would clash
-    // with DispatcherActivity's own "Enqueue" type on the same worker (TypeAlreadyRegistered). Only claim is
-    // invoked as an activity (by the ticker via create()).
     @ActivityMethod
     List<Claim> claim(int maxBatch);
 
@@ -62,7 +57,6 @@ public interface DispatcherStore {
             return ApplicationContextProvider.context.getBean(RedissonClient.class);
         }
 
-        /** Called directly by {@link DispatcherActivity} (not via a stub) — see the interface note on why. */
         public void enqueue(String key, int limit, String taskQueue, List<Object> workArgs) {
             RedissonClient r = redis();
             try {
@@ -113,13 +107,6 @@ public interface DispatcherStore {
             return claims;
         }
 
-        /**
-         * Removes {@code key} from the active-key index, but re-adds it if the queue is non-empty — closing the
-         * TOCTOU race where an {@code enqueue} lands an item (and re-adds the key) between our emptiness check and
-         * this removal. Safe because {@code enqueue} always does {@code addLast} then {@code KEYS.add}, so any item
-         * that becomes visible is re-registered either by this re-check or by that enqueue's own add. Without this,
-         * the item would sit in Redis unclaimed (stranded) until the next enqueue for the same key.
-         */
         private void removeKeyIfEmpty(RedissonClient r, String key) {
             r.getSet(KEYS).remove(key);
             if (!r.getDeque(QUEUE + key).isEmpty())
@@ -144,11 +131,6 @@ public interface DispatcherStore {
         }
     }
 
-    /**
-     * Waiting-queue depth for {@code key} — the admission-cap signal in REDIS mode. Running items are counted
-     * separately by the concurrency gate, not here, so the cap means "at most N waiting". Reads the durable Redis
-     * deque directly (not a live dispatcher/ticker), so it stays correct even when nothing is currently running.
-     */
     static int pendingCount(String key) {
         try {
             return ApplicationContextProvider.context.getBean(RedissonClient.class).getDeque(QUEUE_KEY_PREFIX + key).size();
