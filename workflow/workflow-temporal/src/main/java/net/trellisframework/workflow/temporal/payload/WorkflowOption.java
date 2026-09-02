@@ -14,6 +14,7 @@ public class WorkflowOption {
     private String id;
     private Priority priority;
     private Concurrency concurrency;
+    private String idempotencyKey;
 
     public static WorkflowOption of(String id) {
         WorkflowOption option = new WorkflowOption();
@@ -60,6 +61,16 @@ public class WorkflowOption {
         option.priority = Priority.newBuilder().setPriorityKey(priority).build();
         option.concurrency = concurrency;
         return option;
+    }
+
+    public WorkflowOption idempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+        return this;
+    }
+
+    @JsonIgnore
+    public boolean hasIdempotencyKey() {
+        return idempotencyKey != null && !idempotencyKey.isBlank();
     }
 
     @JsonIgnore

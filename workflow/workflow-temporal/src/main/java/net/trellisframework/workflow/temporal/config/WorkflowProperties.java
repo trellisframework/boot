@@ -16,4 +16,10 @@ public class WorkflowProperties {
     private int maxConcurrentActivities = 200;
     private long deadlockDetectionTimeout = 120000;
 
+    private ConcurrencyBackend concurrencyBackend = ConcurrencyBackend.MEMORY;
+
+    public enum ConcurrencyBackend {
+        MEMORY, REDIS
+    }
+
 }

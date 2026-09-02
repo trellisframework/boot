@@ -3,6 +3,8 @@ package net.trellisframework.workflow.temporal.provider;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowStub;
 import net.trellisframework.core.application.ApplicationContextProvider;
+import net.trellisframework.workflow.temporal.activity.DispatcherStore;
+import net.trellisframework.workflow.temporal.config.WorkflowProperties;
 
 public interface WorkflowQuery {
 
@@ -17,10 +19,20 @@ public interface WorkflowQuery {
     }
 
     default int getConcurrencyPendingCount(String concurrencyKey) {
+        if (concurrencyBackend() == WorkflowProperties.ConcurrencyBackend.REDIS)
+            return DispatcherStore.pendingCount(concurrencyKey);
         try {
             return query("ConcurrencyDispatcher-" + concurrencyKey, "getPendingCount", Integer.class);
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private WorkflowProperties.ConcurrencyBackend concurrencyBackend() {
+        try {
+            return ApplicationContextProvider.context.getBean(WorkflowProperties.class).getConcurrencyBackend();
+        } catch (Exception e) {
+            return WorkflowProperties.ConcurrencyBackend.MEMORY;
         }
     }
 

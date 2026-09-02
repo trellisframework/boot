@@ -21,6 +21,9 @@ import java.util.Optional;
 public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandler {
 
     public static final String SEARCH_ATTR_CONCURRENCY_KEY = "ConcurrencyKey";
+
+    private record TickerSlot(String key, String holderId, int limit) {}
+
     private Object workflowBean;
     private String workflowClassName;
     private WorkflowOption workflowOption;
@@ -33,9 +36,13 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         if (ConcurrencyDispatcherWorkflow.CLASS_NAME.equals(workflowClassName)) {
             return executeDispatcher(args);
         }
+        if (ConcurrencyTickerWorkflow.CLASS_NAME.equals(workflowClassName)) {
+            return executeTicker(args);
+        }
 
         String dispatcherId = extractDispatcherId(args);
         String childId = extractChildId(args);
+        TickerSlot tickerSlot = extractTickerSlot(args);
 
         try {
             Class<?> workflowClass = Class.forName(workflowClassName);
@@ -50,19 +57,28 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
 
             String key = null;
             String holderId = null;
+            int holderLimit = 0;
             DistributedLockActivity lockActivity = null;
             CancellationScope heartbeatScope = null;
             boolean managedByDispatcher = dispatcherId != null;
 
-            if (!managedByDispatcher && hasConcurrency()) {
+            if (tickerSlot != null) {
+                key = tickerSlot.key();
+                holderId = tickerSlot.holderId();
+                holderLimit = tickerSlot.limit();
+                lockActivity = DistributedLockActivity.create();
+            } else if (!managedByDispatcher && hasConcurrency()) {
                 key = workflowOption.getConcurrencyKey();
                 holderId = Workflow.getInfo().getWorkflowId();
+                holderLimit = workflowOption.getConcurrencyLimit();
                 lockActivity = DistributedLockActivity.create();
-                acquire(lockActivity, key, holderId, workflowOption.getConcurrencyLimit());
+                acquire(lockActivity, key, holderId, holderLimit);
+            }
 
+            if (lockActivity != null) {
                 final String lockKey = key;
                 final String lockHolderId = holderId;
-                final int lockLimit = workflowOption.getConcurrencyLimit();
+                final int lockLimit = holderLimit;
                 final DistributedLockActivity activity = lockActivity;
 
                 heartbeatScope = Workflow.newDetachedCancellationScope(() -> {
@@ -130,6 +146,26 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
         Workflow.registerListener(dispatcher);
         Workflow.registerListener(this);
         dispatcher.run(args);
+        return null;
+    }
+
+    private Object executeTicker(EncodedValues args) {
+        ConcurrencyTickerWorkflow ticker = new ConcurrencyTickerWorkflow();
+        Workflow.registerListener(ticker);
+        ticker.run(args);
+        return null;
+    }
+
+    private TickerSlot extractTickerSlot(EncodedValues args) {
+        int n = args.getSize();
+        if (n >= 4) {
+            try {
+                if (ConcurrencyTickerWorkflow.SLOT_MARKER.equals(args.get(n - 4, String.class))) {
+                    return new TickerSlot(args.get(n - 3, String.class), args.get(n - 2, String.class), args.get(n - 1, int.class));
+                }
+            } catch (Exception ignored) {
+            }
+        }
         return null;
     }
 
