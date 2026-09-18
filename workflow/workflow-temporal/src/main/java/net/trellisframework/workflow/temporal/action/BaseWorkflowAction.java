@@ -3,10 +3,12 @@ package net.trellisframework.workflow.temporal.action;
 import io.temporal.activity.Activity;
 import io.temporal.workflow.Workflow;
 import net.trellisframework.workflow.temporal.provider.WorkflowContextProvider;
+import net.trellisframework.workflow.temporal.util.VersionArgs;
 
 import java.time.Duration;
 
 public interface BaseWorkflowAction extends WorkflowContextProvider {
+
 
     default void sleep(Duration duration) {
         Workflow.sleep(duration);
@@ -33,7 +35,9 @@ public interface BaseWorkflowAction extends WorkflowContextProvider {
     }
 
     default int version(String changeId, int maxVersion) {
-        return Workflow.getVersion(changeId, Workflow.DEFAULT_VERSION, maxVersion);
+        int version = Workflow.getVersion(changeId, Workflow.DEFAULT_VERSION, maxVersion);
+        VersionArgs.upsertTypedSearchAttributes(changeId,maxVersion);
+        return version;
     }
 
     default boolean isVersion(String changeId, int minVersion) {
