@@ -2,6 +2,7 @@ package net.trellisframework.data.redis.ratelimit;
 
 import org.redisson.api.BatchOptions;
 import org.redisson.api.RBatch;
+import org.redisson.api.RFuture;
 import org.redisson.api.RScoredSortedSetAsync;
 import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.LongCodec;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 
 final class RateLimiterStore {
 
@@ -66,11 +68,11 @@ final class RateLimiterStore {
 
     static void release(RedissonClient client, Limited target, long now) {
         Batch batch = new Batch(client);
-        RScoredSortedSetAsync<String> permits = batch.permits(target.key());
+        String key = target.key();
         long timeout = permitTimeoutMillis(target.limits());
         if (timeout > 0)
-            batch.add(permits.removeRangeByScoreAsync(Double.NEGATIVE_INFINITY, true, now - timeout, true));
-        batch.add(permits.pollFirstAsync());
+            batch.add(b -> Batch.permits(b, key).removeRangeByScoreAsync(Double.NEGATIVE_INFINITY, true, now - timeout, true));
+        batch.add(b -> Batch.permits(b, key).pollFirstAsync());
         batch.execute();
     }
 
@@ -100,7 +102,8 @@ final class RateLimiterStore {
             batch = client.createBatch(BatchOptions.defaults());
         }
 
-        int add(Object command) {
+        int add(Function<RBatch, RFuture<?>> command) {
+            command.apply(batch);
             return size++;
         }
 
@@ -121,7 +124,7 @@ final class RateLimiterStore {
             return value == null ? 0 : ((Number) value).longValue();
         }
 
-        RScoredSortedSetAsync<String> permits(String key) {
+        static RScoredSortedSetAsync<String> permits(RBatch batch, String key) {
             return batch.getScoredSortedSet(key + PERMITS, StringCodec.INSTANCE);
         }
     }
@@ -136,13 +139,15 @@ final class RateLimiterStore {
         Reading(Batch batch, Limited target, long now) {
             this.batch = batch;
             limits = target.limits();
-            coolOffUntil = batch.add(batch.batch.getBucket(target.key() + COOL_OFF, LongCodec.INSTANCE).getAsync());
+            coolOffUntil = batch.add(b -> b.getBucket(target.key() + COOL_OFF, LongCodec.INSTANCE).getAsync());
             for (RateLimit.Rate rate : limits.getRates())
-                windows.add(batch.add(batch.batch.getBucket(windowKey(target.key(), rate), LongCodec.INSTANCE).getAsync()));
+                windows.add(batch.add(b -> b.getBucket(windowKey(target.key(), rate), LongCodec.INSTANCE).getAsync()));
             if (limits.getMaxConcurrent() > 0) {
-                RScoredSortedSetAsync<String> set = batch.permits(target.key());
                 long timeout = permitTimeoutMillis(limits);
-                permits = batch.add(timeout > 0 ? set.countAsync(now - timeout, false, Double.POSITIVE_INFINITY, true) : set.sizeAsync());
+                String key = target.key();
+                permits = batch.add(b -> timeout > 0
+                        ? Batch.permits(b, key).countAsync(now - timeout, false, Double.POSITIVE_INFINITY, true)
+                        : Batch.permits(b, key).sizeAsync());
             } else
                 permits = -1;
         }
@@ -177,21 +182,20 @@ final class RateLimiterStore {
             key = target.key();
             limits = target.limits();
             member = Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
-            coolOffUntil = batch.add(batch.batch.getBucket(key + COOL_OFF, LongCodec.INSTANCE).getAsync());
+            coolOffUntil = batch.add(b -> b.getBucket(key + COOL_OFF, LongCodec.INSTANCE).getAsync());
             for (RateLimit.Rate rate : limits.getRates()) {
                 String window = windowKey(key, rate);
-                batch.add(batch.batch.getBucket(window, LongCodec.INSTANCE).setIfAbsentAsync(0L, rate.getDuration()));
-                counts.add(batch.add(batch.batch.getAtomicLong(window).incrementAndGetAsync()));
-                ttls.add(batch.add(batch.batch.getBucket(window).remainTimeToLiveAsync()));
+                batch.add(b -> b.getBucket(window, LongCodec.INSTANCE).setIfAbsentAsync(0L, rate.getDuration()));
+                counts.add(batch.add(b -> b.getAtomicLong(window).incrementAndGetAsync()));
+                ttls.add(batch.add(b -> b.getBucket(window).remainTimeToLiveAsync()));
             }
             if (limits.getMaxConcurrent() > 0) {
-                RScoredSortedSetAsync<String> set = batch.permits(key);
                 long timeout = permitTimeoutMillis(limits);
                 if (timeout > 0)
-                    batch.add(set.removeRangeByScoreAsync(Double.NEGATIVE_INFINITY, true, now - timeout, true));
-                batch.add(set.addAsync(now, member));
-                permits = batch.add(set.sizeAsync());
-                batch.add(set.expireAsync(Duration.ofMillis(ttlMillis(limits))));
+                    batch.add(b -> Batch.permits(b, key).removeRangeByScoreAsync(Double.NEGATIVE_INFINITY, true, now - timeout, true));
+                batch.add(b -> Batch.permits(b, key).addAsync(now, member));
+                permits = batch.add(b -> Batch.permits(b, key).sizeAsync());
+                batch.add(b -> Batch.permits(b, key).expireAsync(Duration.ofMillis(ttlMillis(limits))));
             } else
                 permits = -1;
         }
@@ -212,22 +216,24 @@ final class RateLimiterStore {
             for (int i = 0; i < ttls.size(); i++) {
                 RateLimit.Rate rate = limits.getRates().get(i);
                 if (batch.count(ttls.get(i)) == -1L)
-                    followUp.add(followUp.batch.getBucket(windowKey(key, rate)).expireAsync(rate.getDuration()));
+                    followUp.add(b -> b.getBucket(windowKey(key, rate)).expireAsync(rate.getDuration()));
             }
         }
 
         void rollback(Batch followUp) {
             undo = followUp;
             for (RateLimit.Rate rate : limits.getRates())
-                decremented.add(followUp.add(followUp.batch.getAtomicLong(windowKey(key, rate)).decrementAndGetAsync()));
+                decremented.add(followUp.add(b -> b.getAtomicLong(windowKey(key, rate)).decrementAndGetAsync()));
             if (permits >= 0)
-                followUp.add(followUp.permits(key).removeAsync(member));
+                followUp.add(b -> Batch.permits(b, key).removeAsync(member));
         }
 
         void dropNegative(Batch cleanup) {
-            for (int i = 0; i < decremented.size(); i++)
+            for (int i = 0; i < decremented.size(); i++) {
+                String window = windowKey(key, limits.getRates().get(i));
                 if (undo.count(decremented.get(i)) < 0)
-                    cleanup.add(cleanup.batch.getBucket(windowKey(key, limits.getRates().get(i))).deleteAsync());
+                    cleanup.add(b -> b.getBucket(window).deleteAsync());
+            }
         }
     }
 }
