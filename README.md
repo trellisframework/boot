@@ -1591,12 +1591,31 @@ RateLimit rateLimit = RateLimit.builder()
 |-------|-------------|
 | `RateLimit` | Rate limit configuration builder |
 | `AdvancedRateLimiter` | Rate limiting algorithm implementation |
-| `RateLimitResource` | Tracks rate limit state per resource |
-| `ResourceState` | Current resource state |
+| `RateLimitResource` | Handle for an acquired resource: release, cool-off, per-target overrides |
+| `ResourceState` | In-memory state used by the no-Redis fallback |
 | `RedisCounter` | Atomic counter backed by Redis |
 | `RedisSlidingWindowCounter` | Sliding window counter |
 | `RedisSemaphore` | Distributed semaphore |
 | `ExpirableSemaphore` | Semaphore with automatic expiration |
+
+**Redis storage:**
+
+Every acquire is a pipeline of native Redis commands (no scripts, no JVM lock), so limits hold across all instances
+and calls are safe on virtual threads. State lives in small keys that expire on their own:
+
+| Key | Type | Content | TTL |
+|-----|------|---------|-----|
+| `rate-limiter:v2:<pool>:<resource>[:<target>]#w:<windowMillis>` | string | requests used in the current fixed window | window length |
+| `rate-limiter:v2:<pool>:<resource>[:<target>]#p` | sorted set | one entry per held permit, scored by acquire time | max(window, permit timeout) + 60 s |
+| `rate-limiter:v2:<pool>:<resource>[:<target>]#c` | string | cool-off end time (epoch millis) | cool-off length |
+
+Windows are anchored at the first request and reset when the key expires. Permits older than `permitTimeout` are
+ignored and pruned. When no `RedissonClient` bean is available, or a Redis call fails, the same logic runs in-memory
+per JVM.
+
+**Upgrading from the `rate-limiter:` JSON layout:** the prefix changed to `rate-limiter:v2:`, so old and new instances
+do not share state during a rolling deploy - each population limits independently until the deploy completes, and the
+old keys expire on their own (max window + 60 s). No migration step is needed.
 
 ---
 

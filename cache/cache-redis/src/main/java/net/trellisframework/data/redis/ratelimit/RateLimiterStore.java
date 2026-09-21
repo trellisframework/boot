@@ -167,6 +167,7 @@ final class RateLimiterStore {
         private final String member;
         private final int coolOffUntil;
         private final List<Integer> counts = new ArrayList<>();
+        private final List<Integer> ttls = new ArrayList<>();
         private final int permits;
         private Batch undo;
         private final List<Integer> decremented = new ArrayList<>();
@@ -181,6 +182,7 @@ final class RateLimiterStore {
                 String window = windowKey(key, rate);
                 batch.add(batch.batch.getBucket(window, LongCodec.INSTANCE).setIfAbsentAsync(0L, rate.getDuration()));
                 counts.add(batch.add(batch.batch.getAtomicLong(window).incrementAndGetAsync()));
+                ttls.add(batch.add(batch.batch.getBucket(window).remainTimeToLiveAsync()));
             }
             if (limits.getMaxConcurrent() > 0) {
                 RScoredSortedSetAsync<String> set = batch.permits(key);
@@ -207,9 +209,9 @@ final class RateLimiterStore {
         }
 
         void repair(Batch followUp) {
-            for (int i = 0; i < counts.size(); i++) {
+            for (int i = 0; i < ttls.size(); i++) {
                 RateLimit.Rate rate = limits.getRates().get(i);
-                if (batch.count(counts.get(i)) == 1L)
+                if (batch.count(ttls.get(i)) == -1L)
                     followUp.add(followUp.batch.getBucket(windowKey(key, rate)).expireAsync(rate.getDuration()));
             }
         }

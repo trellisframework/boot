@@ -5,7 +5,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -157,6 +164,38 @@ abstract class AdvancedRateLimiterContract {
         assertNotNull(second, "first limited acquire");
         assertNull(AdvancedRateLimiter.tryAcquire("fox", "SEARCH"), "override 1/s must now be enforced");
         assertNotNull(AdvancedRateLimiter.tryAcquire("fox", "OTHER"), "override is per target");
+    }
+
+    /** Reject path under contention: once a limit is full, a storm of rejected attempts admits nothing and corrupts nothing. */
+    @Test
+    void rejectedAttemptsUnderContentionAdmitNothingAndLeaveLimitIntact() throws Exception {
+        AdvancedRateLimiter.<String>pool("storm").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10, 5).maxConcurrent(5, Duration.ofSeconds(10)).build()).build();
+        List<RateLimitResource<String>> held = new ArrayList<>();
+        for (int i = 0; i < 5; i++)
+            held.add(AdvancedRateLimiter.tryAcquire("storm"));
+        assertTrue(held.stream().allMatch(Objects::nonNull));
+
+        AtomicInteger admitted = new AtomicInteger();
+        List<Callable<Void>> work = new ArrayList<>();
+        for (int t = 0; t < 100; t++)
+            work.add(() -> {
+                for (int i = 0; i < 10; i++)
+                    if (AdvancedRateLimiter.tryAcquire("storm") != null) admitted.incrementAndGet();
+                return null;
+            });
+        ExecutorService executor = Executors.newFixedThreadPool(100);
+        try {
+            for (Future<Void> f : executor.invokeAll(work)) f.get();
+        } finally {
+            executor.shutdown();
+        }
+        assertEquals(0, admitted.get(), "a full limit must reject every attempt under contention");
+
+        held.forEach(RateLimitResource::release);
+        assertFalse(AdvancedRateLimiter.canAcquire("storm"), "window is still full after permits are released");
+        assertTrue(waitUntil(() -> AdvancedRateLimiter.tryAcquire("storm") != null, Duration.ofSeconds(12)),
+                "limit must recover normally after the storm");
     }
 
     static boolean waitUntil(BooleanSupplier condition, Duration timeout) {

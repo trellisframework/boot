@@ -215,6 +215,68 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
         assertTrue(redisson.getBucket(base + "#w:10000").remainTimeToLive() <= ttlBefore, "rejects must not extend the window");
     }
 
+    /** Reject path under contention, at the key level: the storm neither inflates the counter nor extends its TTL nor leaks permits. */
+    @Test
+    void rejectStormLeavesKeysUntouched() throws Exception {
+        AdvancedRateLimiter.<String>pool("keystorm").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10, 3).maxConcurrent(3, Duration.ofSeconds(10)).build()).build();
+        for (int i = 0; i < 3; i++)
+            assertNotNull(AdvancedRateLimiter.tryAcquire("keystorm"));
+        String base = "rate-limiter:v2:keystorm:r1";
+        long ttlBefore = redisson.getBucket(base + "#w:10000").remainTimeToLive();
+
+        List<Callable<Void>> work = new ArrayList<>();
+        for (int t = 0; t < 200; t++)
+            work.add(() -> {
+                for (int i = 0; i < 5; i++) assertNull(AdvancedRateLimiter.tryAcquire("keystorm"));
+                return null;
+            });
+        runAll(work, Executors.newFixedThreadPool(200));
+
+        assertEquals(3L, redisson.<Long>getBucket(base + "#w:10000", LongCodec.INSTANCE).get(), "1000 rejects must not move the counter");
+        assertEquals(3, redisson.getScoredSortedSet(base + "#p", StringCodec.INSTANCE).size(), "rejects must not leak permits");
+        long ttlAfter = redisson.getBucket(base + "#w:10000").remainTimeToLive();
+        assertTrue(ttlAfter > 0 && ttlAfter <= ttlBefore, "rejects must not extend or drop the window TTL, was " + ttlBefore + " -> " + ttlAfter);
+    }
+
+    /**
+     * Died mid-claim: a client that increments and adds its permit, then dies before rolling back, leaves an
+     * over-count. The limiter must stay conservative (never over-admit) and heal on its own once the window and
+     * the permit expire, with no manual cleanup.
+     */
+    @Test
+    void abandonedClaimSelfHealsWithoutOverAdmitting() {
+        AdvancedRateLimiter.<String>pool("died").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().millis(600, 2).maxConcurrent(2, Duration.ofMillis(400)).build()).build();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("died"));
+        String base = "rate-limiter:v2:died:r1";
+        long now = System.currentTimeMillis();
+        redisson.getAtomicLong(base + "#w:600").incrementAndGet();                                      // claim landed ...
+        redisson.getScoredSortedSet(base + "#p", StringCodec.INSTANCE).add(now, "ghost");              // ... and the client died here
+
+        assertNull(AdvancedRateLimiter.tryAcquire("died"), "the abandoned claim counts against the limit, never for it");
+        assertFalse(AdvancedRateLimiter.canAcquire("died"));
+        assertTrue(waitUntil(() -> AdvancedRateLimiter.tryAcquire("died") != null, Duration.ofSeconds(3)),
+                "window and permit expiry must heal the abandoned claim");
+        assertEquals(0, redisson.getScoredSortedSet(base + "#p", StringCodec.INSTANCE).count(0, true, now, true),
+                "the ghost permit must have been expired out of the set");
+    }
+
+    /** Died mid-claim, worst case: a window counter that lost its TTL (INCR after expiry, then death) is re-armed by the next acquire. */
+    @Test
+    void windowCounterWithoutTtlIsRearmedOnNextAcquire() {
+        AdvancedRateLimiter.<String>pool("stuck").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10, 100).build()).build();
+        String window = "rate-limiter:v2:stuck:r1#w:10000";
+        redisson.getBucket(window, LongCodec.INSTANCE).set(3L);
+        assertEquals(-1, redisson.getBucket(window).remainTimeToLive(), "precondition: counter has no TTL");
+
+        assertNotNull(AdvancedRateLimiter.tryAcquire("stuck"));
+
+        assertEquals(4L, redisson.<Long>getBucket(window, LongCodec.INSTANCE).get());
+        assertTtlWithin(window, 9_000, 10_000);
+    }
+
     @Test
     void releaseOfLastPermitLeavesNoKeyBehind() {
         AdvancedRateLimiter.<String>pool("empty").resources(List.of("r1"))
