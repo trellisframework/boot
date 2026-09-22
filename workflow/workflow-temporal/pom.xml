@@ -12,6 +12,7 @@
     <properties>
         <temporal.version>1.32.1</temporal.version>
         <micrometer.version>1.16.1</micrometer.version>
+        <javaparser.version>3.28.2</javaparser.version>
     </properties>
     <dependencies>
         <dependency>
@@ -59,17 +60,16 @@
             <version>${temporal.version}</version>
             <scope>test</scope>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>com.github.javaparser</groupId>-->
-<!--            <artifactId>javaparser-symbol-solver-core</artifactId>-->
-<!--            <version>3.28.2</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
         <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-core</artifactId>
-            <version>3.28.2</version>
-            <scope>test</scope>
+            <version>${javaparser.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-engine</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>
