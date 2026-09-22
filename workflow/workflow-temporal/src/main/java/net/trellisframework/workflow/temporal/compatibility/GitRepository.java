@@ -24,7 +24,14 @@ record GitRepository(Path root) {
     }
 
     Optional<String> show(String ref, Path file) {
-        String path = root.relativize(file.toAbsolutePath().normalize()).toString().replace('\\', '/');
+        Path absoluteFile = file.toAbsolutePath().normalize();
+        try {
+            if (Files.exists(file))
+                absoluteFile = file.toRealPath();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Unable to resolve Git path: " + file, e);
+        }
+        String path = root.relativize(absoluteFile).toString().replace('\\', '/');
         Result result = git(root, "show", ref + ":" + path);
         return result.exitCode() == 0 ? Optional.of(result.output()) : Optional.empty();
     }
