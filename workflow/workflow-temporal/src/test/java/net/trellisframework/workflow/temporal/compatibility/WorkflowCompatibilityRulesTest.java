@@ -63,6 +63,21 @@ class WorkflowCompatibilityRulesTest {
     }
 
     @Test
+    void shouldAcceptRaisedMaxVersionOnExistingChangeId() {
+        String base = BODY.replace("call(ChargeCard.class, order);", "if (isVersion(\"charge-v1\", 1)) call(ChargeCard.class, order);");
+        String changed = base.replace("\"charge-v1\", 1", "\"charge-v1\", 2")
+                .replace("call(ChargeCard.class, order);", "call(ChargeCard.class, order);\nif (isVersion(\"charge-v1\", 2)) call(SendReceipt.class, order);");
+        assertTrue(verify(workflow(base), workflow(changed)).isEmpty());
+    }
+
+    @Test
+    void shouldRejectCopyOfExistingVersionCallAsNewGuard() {
+        String base = BODY.replace("call(ChargeCard.class, order);", "if (isVersion(\"charge-v1\", 1)) call(ChargeCard.class, order);");
+        String changed = base.replace("call(ChargeCard.class, order);", "call(ChargeCard.class, order);\nif (isVersion(\"charge-v1\", 1)) call(SendReceipt.class, order);");
+        assertNeedsChangeId(verify(workflow(base), workflow(changed)));
+    }
+
+    @Test
     void shouldRejectRenamedExistingChangeIdEvenWithNewVersionCall() {
         String base = BODY.replace("call(ChargeCard.class, order);",
                 "if (isVersion(\"charge-v1\", 1)) call(ChargeCard.class, order);");

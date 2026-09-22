@@ -52,28 +52,20 @@ final class WorkflowSource {
         return workflows.stream().map(type -> new Skeleton(type).build()).collect(Collectors.joining("\n"));
     }
 
-    List<String> versionCalls() {
-        return workflows.stream()
-                .flatMap(type -> type.findAll(MethodCallExpr.class,
-                        call -> VERSION_NAMES.contains(call.getNameAsString())).stream())
-                .map(call -> call.toString().replaceAll("\\s+", " ").trim())
-                .toList();
+    Map<String, Integer> versions() {
+        Map<String, Integer> versions = new HashMap<>();
+        workflows.stream()
+                .flatMap(type -> type.findAll(MethodCallExpr.class, call -> VERSION_NAMES.contains(call.getNameAsString())).stream())
+                .filter(call -> call.getArguments().size() >= 2)
+                .forEach(call -> versions.merge(literal(call.getArgument(0)), number(call.getArgument(call.getArguments().size() - 1)), Math::max));
+        return versions;
     }
 
-    boolean preservesVersionCalls(WorkflowSource current) {
-        List<String> baseCalls = versionCalls();
-        List<String> currentCalls = current.versionCalls();
-        int currentIndex = 0;
-        for (String baseCall : baseCalls) {
-            while (currentIndex < currentCalls.size()
-                    && !baseCall.equals(currentCalls.get(currentIndex))) {
-                currentIndex++;
-            }
-            if (currentIndex == currentCalls.size())
-                return false;
-            currentIndex++;
-        }
-        return true;
+    boolean advancesVersionsOf(WorkflowSource base) {
+        Map<String, Integer> before = base.versions();
+        Map<String, Integer> after = versions();
+        boolean preserved = before.entrySet().stream().allMatch(entry -> after.getOrDefault(entry.getKey(), -1) >= entry.getValue());
+        return preserved && !after.equals(before);
     }
 
     Optional<String> safeChangeReason() {
@@ -85,6 +77,10 @@ final class WorkflowSource {
                 .map(pair -> literal(pair.getValue()))
                 .filter(reason -> !reason.isBlank())
                 .findFirst();
+    }
+
+    private static int number(Expression expression) {
+        return expression.isIntegerLiteralExpr() ? expression.asIntegerLiteralExpr().asNumber().intValue() : 0;
     }
 
     private static String literal(Expression expression) {

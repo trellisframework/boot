@@ -62,13 +62,8 @@ public final class WorkflowCompatibility {
         WorkflowSource base = WorkflowSource.parse(baseSource.get());
         if (!base.isWorkflow())
             return Optional.empty();
-        if (!base.skeleton().equals(current.skeleton())) {
-            boolean newVersionCall = current.versionCalls().size() > base.versionCalls().size();
-            boolean existingVersionCallsPreserved = base.preservesVersionCalls(current);
-            return newVersionCall && existingVersionCallsPreserved
-                    ? Optional.empty()
-                    : Optional.of(NEEDS_CHANGE_ID);
-        }
+        if (!base.skeleton().equals(current.skeleton()))
+            return current.advancesVersionsOf(base) ? Optional.empty() : Optional.of(NEEDS_CHANGE_ID);
         return current.safeChangeReason().isPresent() ? Optional.empty() : Optional.of(NEEDS_SAFE_CHANGE);
     }
 }
