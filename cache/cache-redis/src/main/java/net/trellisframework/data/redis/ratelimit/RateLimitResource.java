@@ -6,8 +6,6 @@ import net.trellisframework.data.redis.constant.Messages;
 import net.trellisframework.http.exception.NotFoundException;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 
 @RequiredArgsConstructor
 public class RateLimitResource<T> implements Payload {
@@ -19,10 +17,11 @@ public class RateLimitResource<T> implements Payload {
     private final T resource;
 
     public void release() {
-        if (resourceLimits != null && resourceLimits.getMaxConcurrent() > 0)
-            AdvancedRateLimiter.releaseResource(resourceKey, resourceLimits);
-        if (targetLimits != null && targetLimits.getMaxConcurrent() > 0)
-            AdvancedRateLimiter.releaseResource(targetKey, targetLimits);
+        AdvancedRateLimiter.releaseResource(resourceKey, permits(resourceLimits), targetKey, permits(targetLimits));
+    }
+
+    private static RateLimit permits(RateLimit limits) {
+        return limits != null && limits.getMaxConcurrent() > 0 ? limits : null;
     }
 
     public void coolOff() {
@@ -47,15 +46,11 @@ public class RateLimitResource<T> implements Payload {
     }
 
     public boolean canAcquire() {
-        if (resourceLimits != null && !AdvancedRateLimiter.canAcquireResource(resourceKey, resourceLimits))
-            return false;
-        return targetLimits == null || AdvancedRateLimiter.canAcquireResource(targetKey, targetLimits);
+        return AdvancedRateLimiter.canAcquireResource(resourceKey, resourceLimits, targetKey, targetLimits);
     }
 
     public boolean tryAcquire() {
-        if (resourceLimits != null && !AdvancedRateLimiter.tryAcquireResource(resourceKey, resourceLimits))
-            return false;
-        return targetLimits == null || AdvancedRateLimiter.tryAcquireResource(targetKey, targetLimits);
+        return AdvancedRateLimiter.tryAcquireResource(resourceKey, resourceLimits, targetKey, targetLimits);
     }
 
     public void acquire() {
