@@ -152,13 +152,14 @@ public class AdvancedRateLimiter {
         if (pool == null)
             throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
 
-        List<T> resources = pool.resources;
-        if (resources.isEmpty())
+        List<T> resources = List.copyOf(pool.resources); // snapshot: setResources may clear the live list mid-loop
+        int count = resources.size();
+        if (count == 0)
             return null;
 
-        var startIdx = Math.floorMod(pool.roundRobin.getAndIncrement(), resources.size());
-        for (int i = 0; i < resources.size(); i++) {
-            T resource = resources.get((startIdx + i) % resources.size());
+        var startIdx = Math.floorMod(pool.roundRobin.getAndIncrement(), count);
+        for (int i = 0; i < count; i++) {
+            T resource = resources.get((startIdx + i) % count);
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
 

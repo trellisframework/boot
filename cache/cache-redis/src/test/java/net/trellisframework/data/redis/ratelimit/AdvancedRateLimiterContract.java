@@ -8,6 +8,10 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +42,41 @@ abstract class AdvancedRateLimiterContract {
     void resetLimiter() {
         AdvancedRateLimiter.reset();
         wireBackend();
+    }
+
+    /** 9. Refreshing a pool's resources must not break acquires that are already in flight. */
+    @Test
+    void refreshingResourcesDoesNotBreakConcurrentAcquires() throws Exception {
+        AdvancedRateLimiter.<String>pool("swap").resources(List.of("r1", "r2", "r3"))
+                .resourceLimits(RateLimit.builder().second(60, 10_000_000).build()).build();
+
+        Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
+        AtomicBoolean stop = new AtomicBoolean();
+        CountDownLatch done = new CountDownLatch(4);
+        for (int t = 0; t < 3; t++)
+            Thread.ofPlatform().start(() -> {
+                try {
+                    while (!stop.get()) AdvancedRateLimiter.tryAcquire("swap");
+                } catch (Throwable e) {
+                    failures.add(e);
+                } finally {
+                    done.countDown();
+                }
+            });
+        Thread.ofPlatform().start(() -> {
+            try {
+                while (!stop.get()) AdvancedRateLimiter.setResources("swap", List.of("r1", "r2", "r3"));
+            } catch (Throwable e) {
+                failures.add(e);
+            } finally {
+                done.countDown();
+            }
+        });
+
+        Thread.sleep(1_500);
+        stop.set(true);
+        done.await();
+        assertTrue(failures.isEmpty(), "in-flight acquires must survive a resource refresh, saw: " + failures);
     }
 
     @AfterEach
