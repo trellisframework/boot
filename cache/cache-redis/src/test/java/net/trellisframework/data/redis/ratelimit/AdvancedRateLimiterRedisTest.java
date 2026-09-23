@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,10 +165,13 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
     @Test
     void checkNeverWritesToRedis() {
         String key = "rate-limiter:readonly:r1";
-        RateLimit limits = RateLimit.builder().second(10, 5).maxConcurrent(2, Duration.ofMillis(50)).build();
+        RateLimit limits = RateLimit.builder().second(10, 5).maxConcurrent(1, Duration.ofMillis(50)).build();
         long now = System.currentTimeMillis();
         assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now, 0));
+        assertFalse(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), now, 0),
+                "the only permit is live, so a check must refuse");
 
+        // maxConcurrent is 1, so this check can only pass if the expired permit is not counted as live
         long expired = now + 200; // the permit taken above has outlived its 50 ms timeout
         assertTrue(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), expired, 0));
         assertEquals(1, redisson.getScoredSortedSet(key + "#p", StringCodec.INSTANCE).size(),
