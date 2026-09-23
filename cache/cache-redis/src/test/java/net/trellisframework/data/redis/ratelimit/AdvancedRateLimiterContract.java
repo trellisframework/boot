@@ -199,6 +199,34 @@ abstract class AdvancedRateLimiterContract {
         assertNull(AdvancedRateLimiter.tryAcquire("spent"), "the one request allowed this second is already used");
     }
 
+    /** 17. A caller whose permit already expired must not free the permit that replaced it. */
+    @Test
+    void releaseAfterExpiryDoesNotStealAnotherCallersPermit() throws Exception {
+        AdvancedRateLimiter.<String>pool("slow").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(99).maxConcurrent(1, Duration.ofMillis(120)).build()).build();
+
+        RateLimitResource<String> slow = AdvancedRateLimiter.acquire("slow");
+        Thread.sleep(200); // the slow caller is still working, but its permit has timed out
+        assertNotNull(AdvancedRateLimiter.tryAcquire("slow"), "the timed-out permit frees the slot");
+
+        slow.release(); // finishes late, its own permit is long gone
+        assertNull(AdvancedRateLimiter.tryAcquire("slow"), "the permit taken meanwhile must still hold the slot");
+    }
+
+    /** 18. Releasing twice hands back one permit, not two. */
+    @Test
+    void releasingTwiceFreesOnlyOnePermit() {
+        AdvancedRateLimiter.<String>pool("twice").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(99).maxConcurrent(1, Duration.ofSeconds(10)).build()).build();
+
+        RateLimitResource<String> first = AdvancedRateLimiter.acquire("twice");
+        first.release();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("twice"), "the slot is free again");
+
+        first.release(); // a second release of a permit that was already handed back
+        assertNull(AdvancedRateLimiter.tryAcquire("twice"), "the second release must free nothing");
+    }
+
     @AfterEach
     void clearLimiter() {
         AdvancedRateLimiter.reset();

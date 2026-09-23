@@ -15,9 +15,17 @@ public class RateLimitResource<T> implements Payload {
     private final RateLimit targetLimits;
     @Getter
     private final T resource;
+    private volatile String permitId;
+
+    RateLimitResource<T> permit(String permitId) {
+        this.permitId = permitId;
+        return this;
+    }
 
     public void release() {
-        AdvancedRateLimiter.releaseResource(resourceKey, permits(resourceLimits), targetKey, permits(targetLimits));
+        String released = permitId;
+        permitId = null; // releasing twice must not hand back somebody else's permit
+        AdvancedRateLimiter.releaseResource(resourceKey, permits(resourceLimits), targetKey, permits(targetLimits), released);
     }
 
     private static RateLimit permits(RateLimit limits) {
@@ -50,7 +58,11 @@ public class RateLimitResource<T> implements Payload {
     }
 
     public boolean tryAcquire() {
-        return AdvancedRateLimiter.tryAcquireResource(resourceKey, resourceLimits, targetKey, targetLimits);
+        String acquired = AdvancedRateLimiter.tryAcquireResource(resourceKey, resourceLimits, targetKey, targetLimits);
+        if (acquired == null)
+            return false;
+        permitId = acquired;
+        return true;
     }
 
     public void acquire() {

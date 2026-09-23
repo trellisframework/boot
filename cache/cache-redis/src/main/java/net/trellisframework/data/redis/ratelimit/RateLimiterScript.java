@@ -6,7 +6,6 @@ import org.redisson.client.RedisException;
 import org.redisson.client.codec.StringCodec;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -39,7 +38,7 @@ final class RateLimiterScript {
             if mode == 'RELEASE' then
               for i, key in ipairs(KEYS) do
                 livePermits(key, limits[i], true)
-                redis.call('ZPOPMIN', key .. '#p')
+                if arg ~= '' then redis.call('ZREM', key .. '#p', arg) end
               end
               return 1
             end
@@ -76,10 +75,10 @@ final class RateLimiterScript {
     private RateLimiterScript() {
     }
 
-    static boolean execute(RedissonClient client, Op op, List<Limited> targets, long now, long coolOffMillis) {
+    /** {@code arg} is the permit id for ACQUIRE and RELEASE, the cool-off in millis for COOL_OFF, empty otherwise. */
+    static boolean execute(RedissonClient client, Op op, List<Limited> targets, long now, String arg) {
         RScript script = client.getScript(StringCodec.INSTANCE);
         List<Object> keys = targets.stream().<Object>map(Limited::key).toList();
-        String arg = op == Op.ACQUIRE ? Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36) : Long.toString(coolOffMillis);
         Object[] args = Stream.concat(Stream.of(op.name(), Long.toString(now), arg),
                 targets.stream().map(target -> limitsJson(target.limits()))).toArray();
         try {

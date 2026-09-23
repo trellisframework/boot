@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -168,8 +169,9 @@ public class AdvancedRateLimiter {
             if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
                 effectiveTargetLimits = pool.targetLimits.get(target);
 
-            if (execute(Op.ACQUIRE, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), 0))
-                return new RateLimitResource<>(resourceKey, targetKey, effectiveResourceLimits, effectiveTargetLimits, resource);
+            String permitId = execute(Op.ACQUIRE, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), null);
+            if (permitId != null)
+                return new RateLimitResource<>(resourceKey, targetKey, effectiveResourceLimits, effectiveTargetLimits, resource).permit(permitId);
         }
         return null;
     }
@@ -193,26 +195,30 @@ public class AdvancedRateLimiter {
             if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
                 effectiveTargetLimits = pool.targetLimits.get(target);
 
-            if (execute(Op.CHECK, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), 0))
+            if (execute(Op.CHECK, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), null) != null)
                 return true;
         }
         return false;
     }
 
-    static void releaseResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
-        execute(Op.RELEASE, limited(resourceKey, resourceLimits, targetKey, targetLimits), 0);
+    /** Releases the permit {@code permitId} names. A null id releases nothing, so a second release is a no-op. */
+    static void releaseResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits, String permitId) {
+        if (permitId == null)
+            return;
+        execute(Op.RELEASE, limited(resourceKey, resourceLimits, targetKey, targetLimits), permitId);
     }
 
     static void applyCoolOff(String key, Duration duration, RateLimit limits) {
-        execute(Op.COOL_OFF, limited(key, limits, null, null), duration.toMillis());
+        execute(Op.COOL_OFF, limited(key, limits, null, null), Long.toString(duration.toMillis()));
     }
 
     static boolean canAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
-        return execute(Op.CHECK, limited(resourceKey, resourceLimits, targetKey, targetLimits), 0);
+        return execute(Op.CHECK, limited(resourceKey, resourceLimits, targetKey, targetLimits), null) != null;
     }
 
-    static boolean tryAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
-        return execute(Op.ACQUIRE, limited(resourceKey, resourceLimits, targetKey, targetLimits), 0);
+    /** Returns the new permit's id, or null when the limit refused it. */
+    static String tryAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
+        return execute(Op.ACQUIRE, limited(resourceKey, resourceLimits, targetKey, targetLimits), null);
     }
 
     private static List<Limited> limited(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
@@ -224,18 +230,45 @@ public class AdvancedRateLimiter {
         return targets;
     }
 
-    private static boolean execute(Op op, List<Limited> targets, long coolOffMillis) {
+    /**
+     * Runs one limiter operation. Returns null when the limit refused it, the new permit's id for an acquire,
+     * and an empty string for every other operation that went through.
+     */
+    private static String execute(Op op, List<Limited> targets, String arg) {
         if (targets.isEmpty())
-            return true;
+            return "";
         long now = System.currentTimeMillis();
+        String permitArg = op == Op.ACQUIRE ? newPermitId(now) : arg == null ? "" : arg;
         RedissonClient client = redisson;
         if (client != null)
             try {
-                return RateLimiterScript.execute(client, op, targets, now, coolOffMillis);
+                return outcome(RateLimiterScript.execute(client, op, targets, now, permitArg), op, permitArg);
             } catch (Exception e) {
                 warnPaused(now, e);
             }
-        return executeLocally(op, targets, now, coolOffMillis);
+        return outcome(executeLocally(op, targets, now, permitArg), op, permitArg);
+    }
+
+    private static String outcome(boolean allowed, Op op, String permitArg) {
+        if (!allowed)
+            return null;
+        return op == Op.ACQUIRE ? permitArg : "";
+    }
+
+    /** The acquisition time, so the in-memory fallback can find the same permit, plus enough randomness to be unique. */
+    private static String newPermitId(long now) {
+        return now + "-" + Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
+    }
+
+    private static Long permitTimestamp(String permitId) {
+        int dash = permitId.indexOf('-');
+        if (dash <= 0)
+            return null;
+        try {
+            return Long.parseLong(permitId.substring(0, dash));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static void warnPaused(long now, Exception e) {
@@ -245,7 +278,7 @@ public class AdvancedRateLimiter {
         Logger.warn("Failed to run rate limiter in Redis, using local state: " + e.getMessage());
     }
 
-    private static boolean executeLocally(Op op, List<Limited> targets, long now, long coolOffMillis) {
+    private static boolean executeLocally(Op op, List<Limited> targets, long now, String arg) {
         List<Lock> locks = targets.stream().map(target -> localLocks.computeIfAbsent(target.key(), k -> new ReentrantLock())).toList();
         locks.forEach(Lock::lock);
         try {
@@ -256,10 +289,11 @@ public class AdvancedRateLimiter {
                 cleanupExpiredPermits(state, limits, now);
                 switch (op) {
                     case RELEASE -> {
-                        if (!state.getAcquiredTimestamps().isEmpty())
-                            state.getAcquiredTimestamps().removeFirst();
+                        Long acquiredAt = permitTimestamp(arg);
+                        if (acquiredAt != null)
+                            state.getAcquiredTimestamps().remove(acquiredAt);
                     }
-                    case COOL_OFF -> state.setCoolOffUntil(now + coolOffMillis);
+                    case COOL_OFF -> state.setCoolOffUntil(now + Long.parseLong(arg));
                     default -> {
                         if (!canAcquire(state, limits, now))
                             return false;
