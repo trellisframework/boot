@@ -27,7 +27,7 @@ final class RateLimiterScript {
             local function livePermits(key, limits, prune)
               if limits.permitTimeout < 0 then return redis.call('ZCARD', key .. '#p') end
               local expired = now - limits.permitTimeout
-              if not prune then return redis.call('ZCOUNT', key .. '#p', string.format('(%d', expired), '+inf') end
+              if not prune then return redis.call('ZCOUNT', key .. '#p', '(' .. expired, '+inf') end
               redis.call('ZREMRANGEBYSCORE', key .. '#p', '-inf', expired)
               return redis.call('ZCARD', key .. '#p')
             end
