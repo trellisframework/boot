@@ -1,45 +1,54 @@
 package net.trellisframework.data.redis.ratelimit;
 
 import lombok.RequiredArgsConstructor;
-import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.data.redis.constant.Messages;
+import net.trellisframework.data.redis.ratelimit.RateLimiterScript.Limited;
+import net.trellisframework.data.redis.ratelimit.RateLimiterScript.Op;
 import net.trellisframework.http.exception.NotFoundException;
 import net.trellisframework.http.exception.PreConditionRequiredException;
-import net.trellisframework.util.json.JsonUtil;
-import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import org.redisson.client.codec.StringCodec;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
 
 @Component
-@RequiredArgsConstructor
 public class AdvancedRateLimiter {
     private static final String KEY_PREFIX = "rate-limiter:";
     private static final Map<String, PoolConfig<?>> pools = new ConcurrentHashMap<>();
     private static final Map<String, ResourceState> localCache = new ConcurrentHashMap<>();
+    private static final Map<String, Lock> localLocks = new ConcurrentHashMap<>();
     private static final Map<String, RateLimit> rateLimitOverrides = new ConcurrentHashMap<>();
-    private static RedissonClient redisson;
+    private static final long WARN_INTERVAL_MILLIS = 5_000L;
+    private static volatile RedissonClient redisson;
+    private static volatile long warnPausedUntil;
 
-    private static RedissonClient getRedisson() {
-        if (redisson == null) {
-            try {
-                redisson = ApplicationContextProvider.context.getBean(RedissonClient.class);
-            } catch (Exception ignored) {
-            }
-        }
-        return redisson;
+    public AdvancedRateLimiter(ObjectProvider<RedissonClient> client) {
+        redisson = client.getIfAvailable();
+        if (redisson == null)
+            Logger.warn("No RedissonClient available, rate limits will be enforced per JVM instead of fleet-wide");
+    }
+
+    static void reset() {
+        pools.clear();
+        localCache.clear();
+        localLocks.clear();
+        rateLimitOverrides.clear();
+        redisson = null;
+        warnPausedUntil = 0;
     }
 
     public static <T> PoolBuilder<T> pool(String poolName) {
@@ -144,13 +153,14 @@ public class AdvancedRateLimiter {
         if (pool == null)
             throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
 
-        List<T> resources = pool.resources;
-        if (resources.isEmpty())
+        List<T> resources = List.copyOf(pool.resources);
+        int count = resources.size();
+        if (count == 0)
             return null;
 
-        var startIdx = pool.roundRobin.getAndIncrement() % resources.size();
-        for (int i = 0; i < resources.size(); i++) {
-            T resource = resources.get((startIdx + i) % resources.size());
+        var startIdx = Math.floorMod(pool.roundRobin.getAndIncrement(), count);
+        for (int i = 0; i < count; i++) {
+            T resource = resources.get((startIdx + i) % count);
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
 
@@ -159,34 +169,9 @@ public class AdvancedRateLimiter {
             if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
                 effectiveTargetLimits = pool.targetLimits.get(target);
 
-            synchronized ((resourceKey + (targetKey != null ? targetKey : "")).intern()) {
-                long now = System.currentTimeMillis();
-                if (effectiveResourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
-                    cleanupExpiredPermits(resourceState, effectiveResourceLimits, now);
-                    if (!canAcquire(resourceState, effectiveResourceLimits, now))
-                        continue;
-                }
-                if (effectiveTargetLimits != null) {
-                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
-                    cleanupExpiredPermits(targetState, effectiveTargetLimits, now);
-                    if (!canAcquire(targetState, effectiveTargetLimits, now))
-                        continue;
-                }
-                if (effectiveResourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
-                    recordAcquire(resourceState, effectiveResourceLimits, now);
-                    setState(resourceKey, resourceState, effectiveResourceLimits);
-                }
-
-                if (effectiveTargetLimits != null) {
-                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
-                    recordAcquire(targetState, effectiveTargetLimits, now);
-                    setState(targetKey, targetState, effectiveTargetLimits);
-                }
-
-                return new RateLimitResource<>(resourceKey, targetKey, effectiveResourceLimits, effectiveTargetLimits, resource);
-            }
+            String permitId = execute(Op.ACQUIRE, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), null);
+            if (permitId != null)
+                return new RateLimitResource<>(resourceKey, targetKey, effectiveResourceLimits, effectiveTargetLimits, resource).permit(permitId);
         }
         return null;
     }
@@ -201,11 +186,7 @@ public class AdvancedRateLimiter {
         if (pool == null)
             return false;
 
-        List<T> resources = pool.resources;
-        if (resources.isEmpty())
-            return false;
-
-        for (T resource : resources) {
+        for (T resource : pool.resources) {
             String resourceKey = KEY_PREFIX + poolName + ":" + pool.key.apply(resource);
             String targetKey = target != null ? resourceKey + ":" + target : null;
 
@@ -214,28 +195,115 @@ public class AdvancedRateLimiter {
             if (effectiveTargetLimits == null && pool.targetLimits != null && target != null)
                 effectiveTargetLimits = pool.targetLimits.get(target);
 
-            synchronized ((resourceKey + (targetKey != null ? targetKey : "")).intern()) {
-                long now = System.currentTimeMillis();
-                boolean resourceAvailable = true;
-                boolean targetAvailable = true;
-
-                if (effectiveResourceLimits != null) {
-                    ResourceState resourceState = getState(resourceKey, effectiveResourceLimits);
-                    cleanupExpiredPermits(resourceState, effectiveResourceLimits, now);
-                    resourceAvailable = canAcquire(resourceState, effectiveResourceLimits, now);
-                }
-
-                if (resourceAvailable && effectiveTargetLimits != null) {
-                    ResourceState targetState = getState(targetKey, effectiveTargetLimits);
-                    cleanupExpiredPermits(targetState, effectiveTargetLimits, now);
-                    targetAvailable = canAcquire(targetState, effectiveTargetLimits, now);
-                }
-
-                if (resourceAvailable && targetAvailable)
-                    return true;
-            }
+            if (execute(Op.CHECK, limited(resourceKey, effectiveResourceLimits, targetKey, effectiveTargetLimits), null) != null)
+                return true;
         }
         return false;
+    }
+
+    static void releaseResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits, String permitId) {
+        if (permitId == null)
+            return;
+        execute(Op.RELEASE, limited(resourceKey, resourceLimits, targetKey, targetLimits), permitId);
+    }
+
+    static void applyCoolOff(String key, Duration duration, RateLimit limits) {
+        execute(Op.COOL_OFF, limited(key, limits, null, null), Long.toString(duration.toMillis()));
+    }
+
+    static boolean canAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
+        return execute(Op.CHECK, limited(resourceKey, resourceLimits, targetKey, targetLimits), null) != null;
+    }
+
+    static String tryAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
+        return execute(Op.ACQUIRE, limited(resourceKey, resourceLimits, targetKey, targetLimits), null);
+    }
+
+    private static List<Limited> limited(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
+        List<Limited> targets = new ArrayList<>(2);
+        if (resourceKey != null && resourceLimits != null)
+            targets.add(new Limited("{" + resourceKey + "}", resourceLimits));
+        if (targetKey != null && targetLimits != null)
+            targets.add(new Limited("{" + resourceKey + "}" + targetKey.substring(resourceKey.length()), targetLimits));
+        return targets;
+    }
+
+    private static String execute(Op op, List<Limited> targets, String arg) {
+        if (targets.isEmpty())
+            return "";
+        long now = System.currentTimeMillis();
+        String permitArg = op == Op.ACQUIRE ? newPermitId(now) : arg == null ? "" : arg;
+        RedissonClient client = redisson;
+        if (client != null)
+            try {
+                return outcome(RateLimiterScript.execute(client, op, targets, now, permitArg), op, permitArg);
+            } catch (Exception e) {
+                warnPaused(now, e);
+            }
+        return outcome(executeLocally(op, targets, now, permitArg), op, permitArg);
+    }
+
+    private static String outcome(boolean allowed, Op op, String permitArg) {
+        if (!allowed)
+            return null;
+        return op == Op.ACQUIRE ? permitArg : "";
+    }
+
+    private static String newPermitId(long now) {
+        return now + "-" + Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
+    }
+
+    private static Long permitTimestamp(String permitId) {
+        int dash = permitId.indexOf('-');
+        if (dash <= 0)
+            return null;
+        try {
+            return Long.parseLong(permitId.substring(0, dash));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static void warnPaused(long now, Exception e) {
+        if (now < warnPausedUntil)
+            return;
+        warnPausedUntil = now + WARN_INTERVAL_MILLIS;
+        Logger.warn("Failed to run rate limiter in Redis, using local state: " + e.getMessage());
+    }
+
+    private static boolean executeLocally(Op op, List<Limited> targets, long now, String arg) {
+        List<Lock> locks = targets.stream().map(target -> localLocks.computeIfAbsent(target.key(), k -> new ReentrantLock())).toList();
+        locks.forEach(Lock::lock);
+        try {
+            List<ResourceState> states = targets.stream().map(target -> getState(target.key(), target.limits(), now)).toList();
+            for (int i = 0; i < targets.size(); i++) {
+                ResourceState state = states.get(i);
+                RateLimit limits = targets.get(i).limits();
+                cleanupExpiredPermits(state, limits, now);
+                switch (op) {
+                    case RELEASE -> {
+                        Long acquiredAt = permitTimestamp(arg);
+                        if (acquiredAt != null)
+                            state.getAcquiredTimestamps().remove(acquiredAt);
+                    }
+                    case COOL_OFF -> state.setCoolOffUntil(now + Long.parseLong(arg));
+                    default -> {
+                        if (!canAcquire(state, limits, now))
+                            return false;
+                    }
+                }
+            }
+            if (op == Op.CHECK)
+                return true;
+            for (int i = 0; i < targets.size(); i++) {
+                if (op == Op.ACQUIRE)
+                    recordAcquire(states.get(i), targets.get(i).limits(), now);
+                setState(targets.get(i).key(), states.get(i));
+            }
+            return true;
+        } finally {
+            locks.reversed().forEach(Lock::unlock);
+        }
     }
 
     private static void cleanupExpiredPermits(ResourceState state, RateLimit limits, long now) {
@@ -272,123 +340,31 @@ public class AdvancedRateLimiter {
         }
     }
 
-    static void releaseResource(String key, RateLimit limits) {
-        if (limits == null || key == null) return;
-        synchronized (key.intern()) {
-            var state = getState(key, limits);
-            if (!state.getAcquiredTimestamps().isEmpty())
-                state.getAcquiredTimestamps().removeFirst();
-
-            if (isStateEmpty(state))
-                deleteState(key);
-            else
-                setState(key, state, limits);
-        }
-    }
-
     private static boolean isStateEmpty(ResourceState state) {
         return state.getAcquiredTimestamps().isEmpty()
                 && state.getRates().isEmpty()
                 && state.getCoolOffUntil() == null;
     }
 
-    private static void deleteState(String key) {
-        localCache.remove(key);
-        if (getRedisson() != null) {
-            try {
-                getRedisson().getBucket(key).delete();
-            } catch (Exception e) {
-                Logger.warn("Failed to delete from Redis: " + e.getMessage());
-            }
-        }
-    }
-
-    private static ResourceState getState(String key, RateLimit limits) {
-        ResourceState state = null;
-
-        if (getRedisson() != null) {
-            try {
-                RBucket<String> bucket = getRedisson().getBucket(key, StringCodec.INSTANCE);
-                state = Optional.ofNullable(bucket.get()).map(x -> JsonUtil.toObject(x, ResourceState.class)).orElse(null);
-            } catch (Exception e) {
-                Logger.warn("Failed to get from Redis: " + e.getMessage());
-            }
-        }
-
-        if (state == null)
-            state = localCache.get(key);
-
-        if (state != null) {
-            refreshWindows(state, limits);
-            return state;
-        }
-
-        return createNewState(limits);
-    }
-
-    private static void refreshWindows(ResourceState state, RateLimit limits) {
-        var now = System.currentTimeMillis();
+    private static ResourceState getState(String key, RateLimit limits, long now) {
+        ResourceState state = localCache.getOrDefault(key, new ResourceState());
         for (var window : state.getRates()) {
             if (now - window.getStartAt() >= window.getDuration()) {
                 window.setStartAt(now);
                 window.setUsed(0);
             }
         }
-    }
-
-    private static ResourceState createNewState(RateLimit limits) {
-        var state = new ResourceState();
-        var now = System.currentTimeMillis();
         for (var rate : limits.getRates())
-            state.getRates().add(ResourceState.Window.of(rate.getDuration().toMillis(), now, 0));
+            if (state.getRates().stream().noneMatch(window -> window.getDuration() == rate.getDuration().toMillis()))
+                state.getRates().add(ResourceState.Window.of(rate.getDuration().toMillis(), now, 0));
         return state;
     }
 
-    private static void setState(String key, ResourceState state, RateLimit limits) {
-        localCache.put(key, state);
-        if (getRedisson() != null) {
-            try {
-                long maxDuration = limits.getRates().stream().mapToLong(r -> r.getDuration().toMillis()).max().orElse(86400_000L);
-                RBucket<String> bucket = getRedisson().getBucket(key, StringCodec.INSTANCE);
-                bucket.set(JsonUtil.toString(state));
-                bucket.expire(Duration.ofMillis(maxDuration + 60_000L));
-            } catch (Exception e) {
-                Logger.warn("Failed to save to Redis: " + e.getMessage());
-            }
-        }
-    }
-
-    static void applyCoolOff(String key, Duration duration, RateLimit limits) {
-        if (key == null || limits == null) return;
-        synchronized (key.intern()) {
-            var state = getState(key, limits);
-            state.setCoolOffUntil(System.currentTimeMillis() + duration.toMillis());
-            setState(key, state, limits);
-        }
-    }
-
-    static boolean canAcquireResource(String key, RateLimit limits) {
-        if (key == null || limits == null) return true;
-        synchronized (key.intern()) {
-            long now = System.currentTimeMillis();
-            var state = getState(key, limits);
-            cleanupExpiredPermits(state, limits, now);
-            return canAcquire(state, limits, now);
-        }
-    }
-
-    static boolean tryAcquireResource(String key, RateLimit limits) {
-        if (key == null || limits == null) return true;
-        synchronized (key.intern()) {
-            long now = System.currentTimeMillis();
-            var state = getState(key, limits);
-            cleanupExpiredPermits(state, limits, now);
-            if (!canAcquire(state, limits, now))
-                return false;
-            recordAcquire(state, limits, now);
-            setState(key, state, limits);
-            return true;
-        }
+    private static void setState(String key, ResourceState state) {
+        if (isStateEmpty(state))
+            localCache.remove(key);
+        else
+            localCache.put(key, state);
     }
 
     @RequiredArgsConstructor
