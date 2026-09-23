@@ -1,5 +1,7 @@
 package net.trellisframework.data.redis.ratelimit;
 
+import net.trellisframework.http.exception.NotFoundException;
+import net.trellisframework.http.exception.PreConditionRequiredException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,12 +10,17 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -38,6 +45,186 @@ abstract class AdvancedRateLimiterContract {
     void resetLimiter() {
         AdvancedRateLimiter.reset();
         wireBackend();
+    }
+
+    /** 9. Refreshing a pool's resources must not break acquires that are already in flight. */
+    @Test
+    void refreshingResourcesDoesNotBreakConcurrentAcquires() throws Exception {
+        AdvancedRateLimiter.<String>pool("swap").resources(List.of("r1", "r2", "r3"))
+                .resourceLimits(RateLimit.builder().second(60, 10_000_000).build()).build();
+
+        Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
+        AtomicBoolean stop = new AtomicBoolean();
+        CountDownLatch done = new CountDownLatch(4);
+        for (int t = 0; t < 3; t++)
+            Thread.ofPlatform().start(() -> {
+                try {
+                    while (!stop.get()) AdvancedRateLimiter.tryAcquire("swap");
+                } catch (Throwable e) {
+                    failures.add(e);
+                } finally {
+                    done.countDown();
+                }
+            });
+        Thread.ofPlatform().start(() -> {
+            try {
+                while (!stop.get()) AdvancedRateLimiter.setResources("swap", List.of("r1", "r2", "r3"));
+            } catch (Throwable e) {
+                failures.add(e);
+            } finally {
+                done.countDown();
+            }
+        });
+
+        Thread.sleep(1_500);
+        stop.set(true);
+        done.await();
+        assertTrue(failures.isEmpty(), "in-flight acquires must survive a resource refresh, saw: " + failures);
+    }
+
+    /** 10. exists() tracks pool registration, and the mutators refuse a pool that was never registered. */
+    @Test
+    void poolRegistrationIsVisibleAndMutatorsRejectUnknownPools() {
+        assertFalse(AdvancedRateLimiter.exists("ghost"));
+        assertFalse(AdvancedRateLimiter.containsTargetLimit("ghost", "T"), "an unknown pool holds no target limits");
+
+        RateLimit one = RateLimit.builder().second(1).build();
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.setResources("ghost", List.of("r1")));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.setResourceLimits("ghost", one));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.setTargetLimits("ghost", TargetLimits.create()));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.putTargetLimit("ghost", "T", one));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.putTargetLimitIfAbsent("ghost", "T", one));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.removeTargetLimit("ghost", "T"));
+        assertThrows(PreConditionRequiredException.class, () -> AdvancedRateLimiter.tryAcquire("ghost"));
+
+        AdvancedRateLimiter.<String>pool("registered").resources(List.of("r1")).resourceLimits(one).build();
+        assertTrue(AdvancedRateLimiter.exists("registered"));
+        AdvancedRateLimiter.reset();
+        assertFalse(AdvancedRateLimiter.exists("registered"), "reset clears the registry");
+    }
+
+    /** 11. setResources swaps which resources the pool draws on; an emptied pool admits nobody. */
+    @Test
+    void setResourcesReplacesTheResourcesInUse() {
+        AdvancedRateLimiter.<String>pool("swapped").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(1).build()).build();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("swapped"), "r1 has its one permit for this second");
+        assertNull(AdvancedRateLimiter.tryAcquire("swapped"), "r1 is spent");
+
+        AdvancedRateLimiter.setResources("swapped", List.of("r2"));
+        RateLimitResource<String> resource = AdvancedRateLimiter.tryAcquire("swapped");
+        assertNotNull(resource, "r2 keeps its own counter");
+        assertEquals("r2", resource.getResource());
+
+        AdvancedRateLimiter.setResources("swapped", List.of());
+        assertNull(AdvancedRateLimiter.tryAcquire("swapped"), "an empty pool admits nobody");
+    }
+
+    /** 12. setResourceLimits applies to later acquires, against the counters already recorded. */
+    @Test
+    void setResourceLimitsAppliesToSubsequentAcquires() {
+        AdvancedRateLimiter.<String>pool("relimited").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(1).build()).build();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("relimited"));
+        assertNull(AdvancedRateLimiter.tryAcquire("relimited"));
+
+        AdvancedRateLimiter.setResourceLimits("relimited", RateLimit.builder().second(3).build());
+        assertNotNull(AdvancedRateLimiter.tryAcquire("relimited"), "one of three used this second");
+        assertNotNull(AdvancedRateLimiter.tryAcquire("relimited"));
+        assertNull(AdvancedRateLimiter.tryAcquire("relimited"), "the widened limit still binds");
+    }
+
+    /** 13. The per-target limit map: put, putIfAbsent, contains and remove, each visible to the next acquire. */
+    @Test
+    void targetLimitsCanBeManagedAfterThePoolIsBuilt() {
+        AdvancedRateLimiter.<String>pool("targets").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10).build()).build();
+        assertFalse(AdvancedRateLimiter.containsTargetLimit("targets", "SEND"));
+
+        AdvancedRateLimiter.putTargetLimit("targets", "SEND", RateLimit.builder().second(1).build());
+        assertTrue(AdvancedRateLimiter.containsTargetLimit("targets", "SEND"));
+        assertNotNull(AdvancedRateLimiter.tryAcquire("targets", "SEND"));
+        assertNull(AdvancedRateLimiter.tryAcquire("targets", "SEND"), "the target's own limit binds");
+        assertNotNull(AdvancedRateLimiter.tryAcquire("targets", "READ"), "an unlimited target is unaffected");
+
+        AdvancedRateLimiter.putTargetLimitIfAbsent("targets", "SEND", RateLimit.builder().second(9).build());
+        assertNull(AdvancedRateLimiter.tryAcquire("targets", "SEND"), "putIfAbsent must not overwrite the 1/s limit");
+
+        AdvancedRateLimiter.removeTargetLimit("targets", "SEND");
+        assertFalse(AdvancedRateLimiter.containsTargetLimit("targets", "SEND"));
+        assertNotNull(AdvancedRateLimiter.tryAcquire("targets", "SEND"), "without a target limit only the pool limit applies");
+
+        AdvancedRateLimiter.removeTargetLimit("targets", "SEND");
+    }
+
+    /** 14. setTargetLimits replaces the whole map, default limit included. */
+    @Test
+    void setTargetLimitsReplacesTheWholeMap() {
+        AdvancedRateLimiter.<String>pool("retargeted").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10).build())
+                .targetLimits(TargetLimits.create().put("SEND", RateLimit.builder().second(1).build())).build();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("retargeted", "SEND"));
+        assertNull(AdvancedRateLimiter.tryAcquire("retargeted", "SEND"));
+
+        AdvancedRateLimiter.setTargetLimits("retargeted", TargetLimits.create()
+                .defaultLimit(RateLimit.builder().second(5).build()));
+        assertFalse(AdvancedRateLimiter.containsTargetLimit("retargeted", "SEND"), "the old map is gone");
+        assertNotNull(AdvancedRateLimiter.tryAcquire("retargeted", "SEND"), "the default limit now applies");
+        assertNotNull(AdvancedRateLimiter.tryAcquire("retargeted", "ANY"), "and to every other target too");
+    }
+
+    /** 15. acquire() is tryAcquire() that raises instead of returning nothing. */
+    @Test
+    void acquireThrowsWhenNothingIsAvailable() {
+        AdvancedRateLimiter.<String>pool("strict").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(10).maxConcurrent(1, Duration.ofSeconds(10)).build()).build();
+
+        RateLimitResource<String> resource = AdvancedRateLimiter.acquire("strict");
+        assertNotNull(resource);
+        assertThrows(NotFoundException.class, () -> AdvancedRateLimiter.acquire("strict"), "the only permit is held");
+        assertThrows(NotFoundException.class, resource::acquire, "the resource handle raises the same way");
+
+        resource.release();
+        assertTrue(resource.tryAcquire(), "the freed permit is available again through the handle");
+    }
+
+    /** 16. release() hands back a concurrency permit; it does not refund the window's allowance. */
+    @Test
+    void releaseFreesThePermitButNotTheWindowAllowance() {
+        AdvancedRateLimiter.<String>pool("spent").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(1).maxConcurrent(1, Duration.ofSeconds(10)).build()).build();
+
+        RateLimitResource<String> resource = AdvancedRateLimiter.acquire("spent");
+        resource.release();
+        assertNull(AdvancedRateLimiter.tryAcquire("spent"), "the one request allowed this second is already used");
+    }
+
+    /** 17. A caller whose permit already expired must not free the permit that replaced it. */
+    @Test
+    void releaseAfterExpiryDoesNotStealAnotherCallersPermit() throws Exception {
+        AdvancedRateLimiter.<String>pool("slow").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(99).maxConcurrent(1, Duration.ofMillis(120)).build()).build();
+
+        RateLimitResource<String> slow = AdvancedRateLimiter.acquire("slow");
+        Thread.sleep(200);
+        assertNotNull(AdvancedRateLimiter.tryAcquire("slow"), "the timed-out permit frees the slot");
+
+        slow.release();
+        assertNull(AdvancedRateLimiter.tryAcquire("slow"), "the permit taken meanwhile must still hold the slot");
+    }
+
+    /** 18. Releasing twice hands back one permit, not two. */
+    @Test
+    void releasingTwiceFreesOnlyOnePermit() {
+        AdvancedRateLimiter.<String>pool("twice").resources(List.of("r1"))
+                .resourceLimits(RateLimit.builder().second(99).maxConcurrent(1, Duration.ofSeconds(10)).build()).build();
+
+        RateLimitResource<String> first = AdvancedRateLimiter.acquire("twice");
+        first.release();
+        assertNotNull(AdvancedRateLimiter.tryAcquire("twice"), "the slot is free again");
+
+        first.release();
+        assertNull(AdvancedRateLimiter.tryAcquire("twice"), "the second release must free nothing");
     }
 
     @AfterEach

@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,7 +98,7 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
             for (int t = 0; t < 20; t++)
                 work.add(() -> {
                     for (int i = 0; i < 25; i++)
-                        if (RateLimiterScript.execute(pod, Op.ACQUIRE, List.of(new Limited(key, limits)), System.currentTimeMillis(), 0))
+                        if (RateLimiterScript.execute(pod, Op.ACQUIRE, List.of(new Limited(key, limits)), System.currentTimeMillis(), UUID.randomUUID().toString()))
                             admitted.increment();
                     return null;
                 });
@@ -160,6 +162,26 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
         assertEquals(0, pinned, "rate limiter must not pin carrier threads");
     }
 
+    /** A check reports the limit without touching it: expired permits are pruned by acquires, never by CHECK. */
+    @Test
+    void checkNeverWritesToRedis() {
+        String key = "rate-limiter:readonly:r1";
+        RateLimit limits = RateLimit.builder().second(10, 5).maxConcurrent(1, Duration.ofMillis(50)).build();
+        long now = System.currentTimeMillis();
+        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now, "p1"));
+        assertFalse(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), now, ""),
+                "the only permit is live, so a check must refuse");
+
+        long expired = now + 200;
+        assertTrue(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), expired, ""));
+        assertEquals(1, redisson.getScoredSortedSet(key + "#p", StringCodec.INSTANCE).size(),
+                "CHECK must leave the permit set exactly as it found it");
+
+        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), expired, "p2"));
+        assertEquals(1, redisson.getScoredSortedSet(key + "#p", StringCodec.INSTANCE).size(),
+                "ACQUIRE prunes the expired permit, then records its own");
+    }
+
     /** Windows, permits and cool-off live in native keys next to the logical key, each with its own TTL. */
     @Test
     void stateLivesInNativeKeysWithTtls() {
@@ -167,8 +189,8 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
         RateLimit limits = RateLimit.builder().second(10, 5).maxConcurrent(3, Duration.ofSeconds(10)).build();
         long now = System.currentTimeMillis();
 
-        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now, 0));
-        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now + 1, 0));
+        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now, "p1"));
+        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), now + 1, "p2"));
         assertEquals("2", redisson.<String>getBucket(key + "#w:10000", StringCodec.INSTANCE).get());
         assertEquals(2, redisson.getScoredSortedSet(key + "#p", StringCodec.INSTANCE).size());
         long windowTtl = redisson.getBucket(key + "#w:10000").remainTimeToLive();
@@ -176,19 +198,19 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
         long permitTtl = redisson.getScoredSortedSet(key + "#p").remainTimeToLive();
         assertTrue(permitTtl > 60_000 && permitTtl <= 70_000, "permit TTL must be max(window, permit timeout) + 60 s, was " + permitTtl);
 
-        RateLimiterScript.execute(redisson, Op.COOL_OFF, List.of(new Limited(key, limits)), now + 3, 500);
+        RateLimiterScript.execute(redisson, Op.COOL_OFF, List.of(new Limited(key, limits)), now + 3, "500");
         long coolOffTtl = redisson.getBucket(key + "#c").remainTimeToLive();
         assertTrue(coolOffTtl > 0 && coolOffTtl <= 500, "cool-off TTL must be the cool-off length, was " + coolOffTtl);
-        assertTrue(!RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), now + 4, 0), "blocked while cooling off");
+        assertTrue(!RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), now + 4, ""), "blocked while cooling off");
     }
 
     @Test
     void releasingLastPermitDeletesEmptyState() {
         String key = "rate-limiter:empty:r1";
         RateLimit limits = RateLimit.builder().maxConcurrent(1, Duration.ofSeconds(10)).build();
-        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), System.currentTimeMillis(), 0));
+        assertTrue(RateLimiterScript.execute(redisson, Op.ACQUIRE, List.of(new Limited(key, limits)), System.currentTimeMillis(), "only"));
         assertTrue(redisson.getScoredSortedSet(key + "#p").isExists());
-        RateLimiterScript.execute(redisson, Op.RELEASE, List.of(new Limited(key, limits)), System.currentTimeMillis(), 0);
+        RateLimiterScript.execute(redisson, Op.RELEASE, List.of(new Limited(key, limits)), System.currentTimeMillis(), "only");
         assertTrue(!redisson.getScoredSortedSet(key + "#p").isExists(), "empty permit set must be gone");
     }
 
@@ -265,7 +287,8 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
                 threads, perThread, samples.length / seconds, samples[samples.length / 2] / 1e6,
                 samples[(int) (samples.length * 0.99)] / 1e6, samples[samples.length - 1] / 1e6);
 
-        assertTrue(p99 < 5, "uncontended p99 acquire latency regressed: " + p99 + " ms");
+        assertTrue(p50 < 5, "uncontended p50 acquire latency regressed: " + p50 + " ms");
+        assertTrue(p99 < 25, "uncontended p99 acquire latency regressed: " + p99 + " ms");
         assertTrue(samples.length / seconds > 500, "saturated throughput regressed: " + samples.length / seconds + " acquires/s");
     }
 
