@@ -75,7 +75,6 @@ final class RateLimiterScript {
     private RateLimiterScript() {
     }
 
-    /** {@code arg} is the permit id for ACQUIRE and RELEASE, the cool-off in millis for COOL_OFF, empty otherwise. */
     static boolean execute(RedissonClient client, Op op, List<Limited> targets, long now, String arg) {
         RScript script = client.getScript(StringCodec.INSTANCE);
         List<Object> keys = targets.stream().<Object>map(Limited::key).toList();

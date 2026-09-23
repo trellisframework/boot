@@ -153,7 +153,7 @@ public class AdvancedRateLimiter {
         if (pool == null)
             throw new PreConditionRequiredException(Messages.POOL_NOT_REGISTERED.getMessage() + ": " + poolName);
 
-        List<T> resources = List.copyOf(pool.resources); // snapshot: setResources may clear the live list mid-loop
+        List<T> resources = List.copyOf(pool.resources);
         int count = resources.size();
         if (count == 0)
             return null;
@@ -201,7 +201,6 @@ public class AdvancedRateLimiter {
         return false;
     }
 
-    /** Releases the permit {@code permitId} names. A null id releases nothing, so a second release is a no-op. */
     static void releaseResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits, String permitId) {
         if (permitId == null)
             return;
@@ -216,7 +215,6 @@ public class AdvancedRateLimiter {
         return execute(Op.CHECK, limited(resourceKey, resourceLimits, targetKey, targetLimits), null) != null;
     }
 
-    /** Returns the new permit's id, or null when the limit refused it. */
     static String tryAcquireResource(String resourceKey, RateLimit resourceLimits, String targetKey, RateLimit targetLimits) {
         return execute(Op.ACQUIRE, limited(resourceKey, resourceLimits, targetKey, targetLimits), null);
     }
@@ -230,10 +228,6 @@ public class AdvancedRateLimiter {
         return targets;
     }
 
-    /**
-     * Runs one limiter operation. Returns null when the limit refused it, the new permit's id for an acquire,
-     * and an empty string for every other operation that went through.
-     */
     private static String execute(Op op, List<Limited> targets, String arg) {
         if (targets.isEmpty())
             return "";
@@ -255,7 +249,6 @@ public class AdvancedRateLimiter {
         return op == Op.ACQUIRE ? permitArg : "";
     }
 
-    /** The acquisition time, so the in-memory fallback can find the same permit, plus enough randomness to be unique. */
     private static String newPermitId(long now) {
         return now + "-" + Long.toUnsignedString(ThreadLocalRandom.current().nextLong(), 36);
     }

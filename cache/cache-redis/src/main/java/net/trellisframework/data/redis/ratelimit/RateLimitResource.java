@@ -24,7 +24,7 @@ public class RateLimitResource<T> implements Payload {
 
     public void release() {
         String released = permitId;
-        permitId = null; // releasing twice must not hand back somebody else's permit
+        permitId = null;
         AdvancedRateLimiter.releaseResource(resourceKey, permits(resourceLimits), targetKey, permits(targetLimits), released);
     }
 

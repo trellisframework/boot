@@ -154,7 +154,7 @@ abstract class AdvancedRateLimiterContract {
         assertFalse(AdvancedRateLimiter.containsTargetLimit("targets", "SEND"));
         assertNotNull(AdvancedRateLimiter.tryAcquire("targets", "SEND"), "without a target limit only the pool limit applies");
 
-        AdvancedRateLimiter.removeTargetLimit("targets", "SEND"); // removing twice is not an error
+        AdvancedRateLimiter.removeTargetLimit("targets", "SEND");
     }
 
     /** 14. setTargetLimits replaces the whole map, default limit included. */
@@ -206,10 +206,10 @@ abstract class AdvancedRateLimiterContract {
                 .resourceLimits(RateLimit.builder().second(99).maxConcurrent(1, Duration.ofMillis(120)).build()).build();
 
         RateLimitResource<String> slow = AdvancedRateLimiter.acquire("slow");
-        Thread.sleep(200); // the slow caller is still working, but its permit has timed out
+        Thread.sleep(200);
         assertNotNull(AdvancedRateLimiter.tryAcquire("slow"), "the timed-out permit frees the slot");
 
-        slow.release(); // finishes late, its own permit is long gone
+        slow.release();
         assertNull(AdvancedRateLimiter.tryAcquire("slow"), "the permit taken meanwhile must still hold the slot");
     }
 
@@ -223,7 +223,7 @@ abstract class AdvancedRateLimiterContract {
         first.release();
         assertNotNull(AdvancedRateLimiter.tryAcquire("twice"), "the slot is free again");
 
-        first.release(); // a second release of a permit that was already handed back
+        first.release();
         assertNull(AdvancedRateLimiter.tryAcquire("twice"), "the second release must free nothing");
     }
 

@@ -172,8 +172,7 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
         assertFalse(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), now, ""),
                 "the only permit is live, so a check must refuse");
 
-        // maxConcurrent is 1, so this check can only pass if the expired permit is not counted as live
-        long expired = now + 200; // the permit taken above has outlived its 50 ms timeout
+        long expired = now + 200;
         assertTrue(RateLimiterScript.execute(redisson, Op.CHECK, List.of(new Limited(key, limits)), expired, ""));
         assertEquals(1, redisson.getScoredSortedSet(key + "#p", StringCodec.INSTANCE).size(),
                 "CHECK must leave the permit set exactly as it found it");
@@ -288,8 +287,6 @@ class AdvancedRateLimiterRedisTest extends AdvancedRateLimiterContract {
                 threads, perThread, samples.length / seconds, samples[samples.length / 2] / 1e6,
                 samples[(int) (samples.length * 0.99)] / 1e6, samples[samples.length - 1] / 1e6);
 
-        // Gates sized for a shared CI runner: the median is the stable signal, the p99 only catches a
-        // pathological outlier. On an idle machine these land near 0.3 ms and 0.8 ms.
         assertTrue(p50 < 5, "uncontended p50 acquire latency regressed: " + p50 + " ms");
         assertTrue(p99 < 25, "uncontended p99 acquire latency regressed: " + p99 + " ms");
         assertTrue(samples.length / seconds > 500, "saturated throughput regressed: " + samples.length / seconds + " acquires/s");
