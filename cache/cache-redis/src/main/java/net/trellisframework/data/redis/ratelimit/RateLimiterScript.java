@@ -25,10 +25,11 @@ final class RateLimiterScript {
     private static final String LUA = """
             local mode, now, arg = ARGV[1], tonumber(ARGV[2]), ARGV[3]
 
-            local function livePermits(key, limits)
-              if limits.permitTimeout >= 0 then
-                redis.call('ZREMRANGEBYSCORE', key .. '#p', '-inf', now - limits.permitTimeout)
-              end
+            local function livePermits(key, limits, prune)
+              if limits.permitTimeout < 0 then return redis.call('ZCARD', key .. '#p') end
+              local expired = now - limits.permitTimeout
+              if not prune then return redis.call('ZCOUNT', key .. '#p', string.format('(%d', expired), '+inf') end
+              redis.call('ZREMRANGEBYSCORE', key .. '#p', '-inf', expired)
               return redis.call('ZCARD', key .. '#p')
             end
 
@@ -37,7 +38,7 @@ final class RateLimiterScript {
 
             if mode == 'RELEASE' then
               for i, key in ipairs(KEYS) do
-                livePermits(key, limits[i])
+                livePermits(key, limits[i], true)
                 redis.call('ZPOPMIN', key .. '#p')
               end
               return 1
@@ -49,7 +50,7 @@ final class RateLimiterScript {
             for i, key in ipairs(KEYS) do
               local l = limits[i]
               if redis.call('EXISTS', key .. '#c') == 1 then return 0 end
-              if l.maxConcurrent > 0 and livePermits(key, l) >= l.maxConcurrent then return 0 end
+              if l.maxConcurrent > 0 and livePermits(key, l, mode ~= 'CHECK') >= l.maxConcurrent then return 0 end
               for _, rate in ipairs(l.rates) do
                 if tonumber(redis.call('GET', key .. '#w:' .. rate.duration) or 0) >= rate.maxRequests then return 0 end
               end

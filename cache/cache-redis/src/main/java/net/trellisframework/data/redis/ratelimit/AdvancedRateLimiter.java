@@ -37,6 +37,8 @@ public class AdvancedRateLimiter {
 
     public AdvancedRateLimiter(ObjectProvider<RedissonClient> client) {
         redisson = client.getIfAvailable();
+        if (redisson == null)
+            Logger.warn("No RedissonClient available, rate limits will be enforced per JVM instead of fleet-wide");
     }
 
     static void reset() {
