@@ -1,5 +1,6 @@
 package net.trellisframework.data.redis.config;
 
+import net.trellisframework.boot.cache.core.config.CacheableProperties;
 import net.trellisframework.boot.cache.core.constant.CacheManagers;
 import net.trellisframework.boot.cache.core.constant.CacheSerializer;
 import net.trellisframework.boot.cache.core.payload.CacheableConfig;
@@ -25,40 +26,52 @@ import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
-import java.util.*;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 @AutoConfigureOrder
 @Configuration
-@EnableConfigurationProperties(CacheProperties.class)
+@EnableConfigurationProperties({CacheProperties.class, CacheableProperties.class})
 @ImportAutoConfiguration(ApplicationContextProvider.class)
 public class RedisCacheConfig {
 
     private final CacheProperties property;
+    private final CacheableProperties ttlProperties;
 
-    public RedisCacheConfig(CacheProperties property) {
+    public RedisCacheConfig(CacheProperties property, CacheableProperties ttlProperties) {
         this.property = property;
+        this.ttlProperties = ttlProperties;
     }
 
     @Primary
     @Bean(CacheManagers.REDIS)
     public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
-        Set<CacheableConfig> elements = AnnotationScanner.cacheableConfig();
-        Map<String, RedisCacheConfiguration> initialCacheConfigurations = new HashMap<>();
-        for (CacheableConfig element : elements) {
-            RedisCacheConfiguration configuration = element.getTtl() == null ? RedisCacheConfiguration.defaultCacheConfig().serializeValuesWith(serializer(element.getSerializer())) : RedisCacheConfiguration.defaultCacheConfig().serializeValuesWith(serializer(element.getSerializer())).entryTtl(element.getTtl());
-            Optional.of(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(configuration::prefixCacheNameWith);
-            Optional.of(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> configuration.disableCachingNullValues());
-            Optional.of(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> configuration.disableKeyPrefix());
-            Arrays.stream(element.getName()).forEach(name -> initialCacheConfigurations.put(name, configuration));
+        Map<String, RedisCacheConfiguration> configurations = new HashMap<>();
+        for (CacheableConfig element : AnnotationScanner.cacheableConfig()) {
+            RedisCacheConfiguration configuration = configure(RedisCacheConfiguration.defaultCacheConfig().serializeValuesWith(serializer(element.getSerializer())), element.getTtl());
+            Arrays.stream(element.getName()).forEach(name -> configurations.put(name, configuration));
         }
-        RedisCacheConfiguration defaultConfiguration = RedisCacheConfiguration.defaultCacheConfig().serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string())).serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new JdkSerializationRedisSerializer()));
-        Optional.of(property.getRedis()).map(CacheProperties.Redis::getTimeToLive).ifPresent(defaultConfiguration::entryTtl);
-        Optional.of(property.getRedis()).map(CacheProperties.Redis::getKeyPrefix).ifPresent(defaultConfiguration::prefixCacheNameWith);
-        Optional.of(property.getRedis()).filter(x -> !x.isCacheNullValues()).ifPresent(x -> defaultConfiguration.disableCachingNullValues());
-        Optional.of(property.getRedis()).filter(x -> !x.isUseKeyPrefix()).ifPresent(x -> defaultConfiguration.disableKeyPrefix());
-        WildcardRedisCacheManager cacheManager = new WildcardRedisCacheManager(RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory), defaultConfiguration, initialCacheConfigurations);
+        RedisCacheConfiguration defaults = configure(RedisCacheConfiguration.defaultCacheConfig()
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new JdkSerializationRedisSerializer())), property.getRedis().getTimeToLive());
+        WildcardRedisCacheManager cacheManager = new WildcardRedisCacheManager(RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory), defaults, configurations);
         cacheManager.setTransactionAware(true);
         return cacheManager;
+    }
+
+    RedisCacheConfiguration configure(RedisCacheConfiguration configuration, Duration ttl) {
+        CacheProperties.Redis redis = property.getRedis();
+        if (ttl != null)
+            configuration = configuration.entryTtl((key, value) -> ttlProperties.jitter(ttl));
+        if (redis.getKeyPrefix() != null)
+            configuration = configuration.prefixCacheNameWith(redis.getKeyPrefix());
+        if (!redis.isCacheNullValues())
+            configuration = configuration.disableCachingNullValues();
+        if (!redis.isUseKeyPrefix())
+            configuration = configuration.disableKeyPrefix();
+        return configuration;
     }
 
     private RedisSerializationContext.SerializationPair<?> serializer(CacheSerializer serializer) {
