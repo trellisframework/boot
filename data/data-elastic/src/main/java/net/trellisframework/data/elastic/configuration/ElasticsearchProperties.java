@@ -15,5 +15,6 @@ public class ElasticsearchProperties {
     private String password;
     private Duration connectionTimeout;
     private Duration socketTimeout;
+    private boolean queryLogging;
 }
 
