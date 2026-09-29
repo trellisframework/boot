@@ -4,8 +4,7 @@ import co.elastic.clients.transport.Endpoint;
 import co.elastic.clients.transport.TransportOptions;
 import co.elastic.clients.transport.http.TransportHttpClient;
 import co.elastic.clients.transport.instrumentation.Instrumentation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.trellisframework.core.log.Logger;
 import org.springframework.util.StopWatch;
 
 import java.nio.ByteBuffer;
@@ -13,8 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 public class ElasticsearchQueryLoggingInstrumentation implements Instrumentation {
-
-    private static final Logger log = LoggerFactory.getLogger(ElasticsearchQueryLoggingInstrumentation.class);
 
     @Override
     public <TRequest> Context newContext(TRequest request, Endpoint<TRequest, ?, ?> endpoint) {
@@ -33,7 +30,7 @@ public class ElasticsearchQueryLoggingInstrumentation implements Instrumentation
         @Override
         public void beforeSendingHttpRequest(TransportHttpClient.Request request, TransportOptions options) {
             stopWatch.start();
-            log.info("Elasticsearch request:{}, method={}, path={}, queryParams={}, body={}",
+            Logger.info("ELASTICSEARCH", "request=%s, method=%s, path=%s, queryParams=%s, body=%s",
                     stopWatch.getId(),
                     request.method(),
                     request.path(),
@@ -44,7 +41,7 @@ public class ElasticsearchQueryLoggingInstrumentation implements Instrumentation
         @Override
         public void afterReceivingHttpResponse(TransportHttpClient.Response response) {
             stopWatch.stop();
-            log.info("Elasticsearch response:{}, status={}, durationMs={}",
+            Logger.info("ELASTICSEARCH", "response=%s, status=%d, durationMs=%d",
                     stopWatch.getId(),
                     response.statusCode(),
                     stopWatch.getTotalTimeMillis());
@@ -59,7 +56,11 @@ public class ElasticsearchQueryLoggingInstrumentation implements Instrumentation
             if (stopWatch.isRunning()) {
                 stopWatch.stop();
             }
-            log.warn("Elasticsearch request={} failed: durationMs={}", stopWatch.getId(),stopWatch.getTotalTimeMillis(), throwable);
+            Logger.warn(
+                    "ELASTICSEARCH",
+                    String.format("request=%s failed: durationMs=%d", stopWatch.getId(), stopWatch.getTotalTimeMillis()),
+                    throwable
+            );
         }
 
         @Override
