@@ -1,6 +1,7 @@
 package net.trellisframework.data.elastic.configuration;
 
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
 import lombok.SneakyThrows;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.data.elastic.constant.Messages;
@@ -56,7 +57,15 @@ public class ElasticsearchConfig {
                                 .setKeepAliveStrategy((response, context) -> keepAlive)
                                 .setDefaultIOReactorConfig(IOReactorConfig.custom().setSoKeepAlive(true).build()))
                 .build();
-        return new SirenElasticsearchClient(new RestClientTransport(restClient, new JacksonJsonpMapper()));
+        RestClientTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        if (properties.isQueryLogging()) {
+            transport = new RestClientTransport(
+                    restClient,
+                    new JacksonJsonpMapper(),
+                    RestClientOptions.of(transport.options()),
+                    new ElasticsearchQueryLoggingInstrumentation());
+        }
+        return new SirenElasticsearchClient(transport);
     }
 
     public static SirenElasticsearchClient getInstance() {
