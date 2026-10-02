@@ -12,6 +12,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.elasticsearch.client.RestClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -39,6 +40,7 @@ public class ElasticsearchConfig {
     public SirenElasticsearchClient elasticsearchClient() {
         int ConnectionTimeout = Optional.ofNullable(properties.getConnectionTimeout()).map(Duration::toMillis).map(Long::intValue).orElse(300000);
         int socketTimeout = Optional.ofNullable(properties.getSocketTimeout()).map(Duration::toMillis).map(Long::intValue).orElse(300000);
+        long keepAlive = Optional.ofNullable(properties.getKeepAlive()).map(Duration::toMillis).orElse(30000L);
         SirenElasticsearchClient.taskTimeoutMillis = (long) socketTimeout;
         final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getUsername(), properties.getPassword()));
@@ -50,7 +52,9 @@ public class ElasticsearchConfig {
                         httpClientBuilder
                                 .setDefaultCredentialsProvider(credentialsProvider)
                                 .setSSLContext(ssl)
-                                .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE))
+                                .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                                .setKeepAliveStrategy((response, context) -> keepAlive)
+                                .setDefaultIOReactorConfig(IOReactorConfig.custom().setSoKeepAlive(true).build()))
                 .build();
         return new SirenElasticsearchClient(new RestClientTransport(restClient, new JacksonJsonpMapper()));
     }
