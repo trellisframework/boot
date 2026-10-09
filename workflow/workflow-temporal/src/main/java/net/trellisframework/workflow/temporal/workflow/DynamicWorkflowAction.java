@@ -2,14 +2,21 @@ package net.trellisframework.workflow.temporal.workflow;
 
 import io.temporal.common.converter.EncodedValues;
 import io.temporal.workflow.*;
+import io.temporal.workflow.unsafe.WorkflowUnsafe;
 import net.trellisframework.context.action.*;
 import net.trellisframework.core.application.ApplicationContextProvider;
+import net.trellisframework.core.log.Logger;
 import net.trellisframework.workflow.temporal.action.Queryable;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
+import net.trellisframework.workflow.temporal.failure.TemporalFailureDetails;
+import net.trellisframework.workflow.temporal.failure.TemporalFailures;
+import net.trellisframework.workflow.temporal.logging.TemporalLogContextProvider;
+import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jspecify.annotations.NonNull;
 
 import java.time.Duration;
 import java.util.Base64;
@@ -94,7 +101,12 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
             }
 
             try {
-                return executeWorkflow(workflowBean, args, paramTypes);
+                try {
+                    return executeWorkflow(workflowBean, args, paramTypes);
+                } catch (RuntimeException | Error failure) {
+                    recordWorkflowFailure(failure, workflowClass);
+                    throw failure;
+                }
             } finally {
                 if (heartbeatScope != null) {
                     heartbeatScope.cancel();
@@ -212,6 +224,38 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
     private void acquire(DistributedLockActivity activity, String key, String holderId, int limit) {
         while (!activity.tryAcquire(key, holderId, limit)) {
             Workflow.sleep(Duration.ofSeconds(1));
+        }
+    }
+
+    private void recordWorkflowFailure(Throwable failure, Class<?> workflowClass) {
+        Optional<TemporalFailureDetails> details = Optional.empty();
+        try {
+            details = Optional.of(TemporalFailures.workflowDetails(failure, Workflow.getInfo(), workflowClassName));
+        } catch (RuntimeException detailsFailure) {
+            addSuppressedFailure(failure, detailsFailure);
+        }
+        try {
+            if (!WorkflowUnsafe.isReplaying()) {
+                String context = details.map(TemporalLogContextProvider::getContext)
+                        .orElseGet(() -> "Workflow execution failed (workflowType=%s failureType=%s)"
+                                .formatted(workflowClassName, failure.getClass().getName()));
+                Logger.error(workflowClass.getSimpleName(), context, failure);
+            }
+        } catch (RuntimeException reportingFailure) {
+            addSuppressedFailure(failure, reportingFailure);
+        }
+        details.ifPresent(value -> {
+            try {
+                Workflow.setCurrentDetails(JsonUtil.toString(value));
+            } catch (RuntimeException currentDetailsFailure) {
+                addSuppressedFailure(failure, currentDetailsFailure);
+            }
+        });
+    }
+
+    private static void addSuppressedFailure(Throwable originalFailure, Throwable reportingFailure) {
+        if (originalFailure != reportingFailure) {
+            originalFailure.addSuppressed(reportingFailure);
         }
     }
 

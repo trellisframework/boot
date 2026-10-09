@@ -11,6 +11,29 @@ import java.util.function.Supplier;
 
 public class Logger {
     private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(Logger.class);
+    private static volatile LogContextProvider contextProvider;
+
+    public static void registerContextProvider(LogContextProvider provider) {
+        contextProvider = provider;
+    }
+
+    private static Optional<LogContext> getLogContext() {
+        LogContextProvider provider = contextProvider;
+        if (provider == null) return Optional.empty();
+        try {
+            return provider.resolve();
+        } catch (RuntimeException contextFailure) {
+            logger.warn("Failed to resolve log context; writing the log without context", contextFailure);
+            return Optional.empty();
+        }
+    }
+
+    private static String withContext(String text, Optional<LogContext> context) {
+        return context.map(LogContext::value)
+                .filter(StringUtils::isNotBlank)
+                .map(value -> text + System.lineSeparator() + "    Temporal context: " + value)
+                .orElse(text);
+    }
 
     private static String getFileName() {
         StackTraceElement[] stackTraceElement = Thread.currentThread().getStackTrace();
@@ -286,10 +309,13 @@ public class Logger {
     }
 
     public static void log(StandardLevel level, String clazz, String method, String identifier, String message, Throwable t) {
+        Optional<LogContext> context = getLogContext();
+        if (context.map(LogContext::suppress).orElse(false)) return;
         String text = String.format("[%s]-{%s}-(%s)", Thread.currentThread().getName(), clazz, method);
         if (StringUtils.isNotBlank(identifier))
             text = text.concat("-" + identifier);
         text = text.concat("-> " + message);
+        text = withContext(text, context);
         if (StandardLevel.TRACE.equals(level))
             logger.trace(text, t);
         else if (StandardLevel.DEBUG.equals(level))
@@ -306,10 +332,13 @@ public class Logger {
 
 
     public static void log(StandardLevel level, String clazz, String method, String identifier, String message, Object... params) {
+        Optional<LogContext> context = getLogContext();
+        if (context.map(LogContext::suppress).orElse(false)) return;
         String text = String.format("[%s]-{%s}-(%s)", Thread.currentThread().getName(), clazz, method);
         if (StringUtils.isNotBlank(identifier))
             text = text.concat("-" + identifier);
         text = text.concat("-> " + Optional.ofNullable(params).map(x -> String.format(message, x)).orElse(message));
+        text = withContext(text, context);
         if (StandardLevel.TRACE.equals(level))
             logger.trace(text);
         else if (StandardLevel.DEBUG.equals(level))
