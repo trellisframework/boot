@@ -22,6 +22,7 @@ import net.trellisframework.workflow.temporal.activity.DispatcherStore;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.activity.DynamicTaskActivity;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
+import net.trellisframework.workflow.temporal.logging.TemporalLogContextProvider;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
@@ -45,6 +46,7 @@ public class WorkflowAutoConfiguration {
 
     static {
         Configurator.setLevel("io.temporal.internal.activity", Level.OFF);
+        Logger.registerContextProvider(new TemporalLogContextProvider());
     }
 
     @Value("${spring.application.name:default}")

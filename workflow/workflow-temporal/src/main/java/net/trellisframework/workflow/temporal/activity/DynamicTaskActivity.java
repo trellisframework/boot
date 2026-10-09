@@ -7,9 +7,8 @@ import io.temporal.common.converter.EncodedValues;
 import io.temporal.failure.ApplicationFailure;
 import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.core.log.Logger;
-import net.trellisframework.http.exception.HttpException;
+import net.trellisframework.workflow.temporal.failure.TemporalFailures;
 import net.trellisframework.util.duration.DurationParser;
-import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Retry;
 import net.trellisframework.workflow.temporal.task.*;
@@ -108,13 +107,19 @@ public class DynamicTaskActivity implements DynamicActivity {
     private RuntimeException toApplicationFailure(Exception e, Class<?> taskClass) {
         var annotation = taskClass.getAnnotation(net.trellisframework.workflow.temporal.annotation.Activity.class);
         Retry retry = annotation != null ? annotation.retry() : null;
-        String message = e instanceof HttpException http ? JsonUtil.toString(http.getErrorMessage()) : e.getMessage();
-        int attempt = Activity.getExecutionContext().getInfo().getAttempt();
-        Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", attempt, message);
+        var activityInfo = Activity.getExecutionContext().getInfo();
+        try {
+            String context = String.format(
+                    "Activity execution failed (workflowId=%s runId=%s workflowType=%s activityId=%s activityType=%s attempt=%d)",
+                    activityInfo.getWorkflowId(), activityInfo.getRunId(), activityInfo.getWorkflowType(),
+                    activityInfo.getActivityId(), activityInfo.getActivityType(), activityInfo.getAttempt());
+            Logger.error(taskClass.getSimpleName(), context, e);
+        } catch (RuntimeException ignored) {
+            // Logging must not replace the activity failure being reported to Temporal.
+        }
         boolean nonRetryable = Optional.ofNullable(retry).map(x -> x.include().length).orElse(0) > 0 && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
-        ApplicationFailure failure = ApplicationFailure.newFailureWithCause(message, e.getClass().getName(), null);
+        ApplicationFailure failure = TemporalFailures.activityFailure(e, activityInfo);
         failure.setNonRetryable(nonRetryable);
-        failure.setStackTrace(new StackTraceElement[0]);
         return failure;
     }
 }
