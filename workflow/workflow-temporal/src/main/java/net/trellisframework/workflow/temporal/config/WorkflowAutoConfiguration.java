@@ -22,6 +22,8 @@ import net.trellisframework.workflow.temporal.activity.DispatcherStore;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.activity.DynamicTaskActivity;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
+import net.trellisframework.workflow.temporal.logging.ReplayLogFilter;
+import net.trellisframework.workflow.temporal.logging.TemporalWorkerInterceptor;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
@@ -45,6 +47,7 @@ public class WorkflowAutoConfiguration {
 
     static {
         Configurator.setLevel("io.temporal.internal.activity", Level.OFF);
+        ReplayLogFilter.install();
     }
 
     @Value("${spring.application.name:default}")
@@ -75,7 +78,7 @@ public class WorkflowAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public WorkerFactory workerFactory(WorkflowClient client) {
-        return WorkerFactory.newInstance(client, WorkerFactoryOptions.newBuilder().setUsingVirtualWorkflowThreads(virtualThreads).setWorkflowCacheSize(1000).build());
+        return WorkerFactory.newInstance(client, WorkerFactoryOptions.newBuilder().setUsingVirtualWorkflowThreads(virtualThreads).setWorkflowCacheSize(1000).setWorkerInterceptors(new TemporalWorkerInterceptor()).build());
     }
 
     @Bean
