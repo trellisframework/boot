@@ -1,6 +1,7 @@
 package net.trellisframework.workflow.temporal.activity;
 
 import io.temporal.activity.Activity;
+import io.temporal.activity.ActivityInfo;
 import io.temporal.activity.ActivityExecutionContext;
 import io.temporal.activity.DynamicActivity;
 import io.temporal.common.converter.EncodedValues;
@@ -9,6 +10,7 @@ import net.trellisframework.core.application.ApplicationContextProvider;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.http.exception.HttpException;
 import net.trellisframework.util.duration.DurationParser;
+import net.trellisframework.workflow.temporal.failure.TemporalFailures;
 import net.trellisframework.util.json.JsonUtil;
 import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Retry;
@@ -109,10 +111,10 @@ public class DynamicTaskActivity implements DynamicActivity {
         var annotation = taskClass.getAnnotation(net.trellisframework.workflow.temporal.annotation.Activity.class);
         Retry retry = annotation != null ? annotation.retry() : null;
         String message = e instanceof HttpException http ? JsonUtil.toString(http.getErrorMessage()) : e.getMessage();
-        int attempt = Activity.getExecutionContext().getInfo().getAttempt();
-        Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", attempt, message);
+        ActivityInfo info = Activity.getExecutionContext().getInfo();
+        Logger.error(taskClass.getSimpleName(), "Task failed (attempt %d): %s", info.getAttempt(), message);
         boolean nonRetryable = Optional.ofNullable(retry).map(x -> x.include().length).orElse(0) > 0 && Arrays.stream(retry.include()).noneMatch(type -> type.isInstance(e));
-        ApplicationFailure failure = ApplicationFailure.newFailureWithCause(message, e.getClass().getName(), null);
+        ApplicationFailure failure = TemporalFailures.activityFailure(e, info);
         failure.setNonRetryable(nonRetryable);
         failure.setStackTrace(new StackTraceElement[0]);
         return failure;

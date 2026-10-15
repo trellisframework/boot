@@ -10,6 +10,7 @@ import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.MDC;
 
 import java.time.Duration;
 import java.util.Base64;
@@ -46,6 +47,7 @@ public class DynamicWorkflowAction implements DynamicWorkflow, DynamicQueryHandl
 
         try {
             Class<?> workflowClass = Class.forName(workflowClassName);
+            MDC.put("WorkflowType", workflowClass.getSimpleName());
             workflowBean = ApplicationContextProvider.context.getBean(workflowClass);
 
             if (workflowBean instanceof Queryable) {
