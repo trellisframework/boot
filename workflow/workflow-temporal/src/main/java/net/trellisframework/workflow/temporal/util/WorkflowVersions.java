@@ -21,7 +21,9 @@ public final class WorkflowVersions {
 
     public static int version(String changeId, int maxVersion) {
         int version = Workflow.getVersion(changeId, Workflow.DEFAULT_VERSION, maxVersion);
-        VersionArgs.upsertTypedSearchAttributes(changeId, maxVersion);
+        if (version != Workflow.DEFAULT_VERSION) {
+            VersionArgs.upsertTypedSearchAttributes(changeId, version);
+        }
         return version;
     }
 }

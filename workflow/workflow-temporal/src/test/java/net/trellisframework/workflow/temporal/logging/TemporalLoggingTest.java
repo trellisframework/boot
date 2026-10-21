@@ -86,7 +86,7 @@ class TemporalLoggingTest {
                     && "order-42".equals(event.getContextData().getValue("WorkflowId"))), messages());
             long starts = EVENTS.stream().filter(event -> message(event).contains("starting")).count();
 
-            WorkflowReplayer.replayWorkflowExecution(environment.getWorkflowExecutionHistory(WorkflowStub.fromTyped(workflow).getExecution()), OrderWorkflowImpl.class);
+            WorkflowReplayer.replayWorkflowExecution(environment.getWorkflowExecutionHistory(WorkflowStub.fromTyped(workflow).getExecution()), worker);
             assertEquals(starts, EVENTS.stream().filter(event -> message(event).contains("starting")).count(), "replay must not log");
         }
     }
