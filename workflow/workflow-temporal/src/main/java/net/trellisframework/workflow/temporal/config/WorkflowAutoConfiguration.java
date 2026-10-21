@@ -1,5 +1,8 @@
 package net.trellisframework.workflow.temporal.config;
 
+import com.uber.m3.tally.RootScopeBuilder;
+import com.uber.m3.util.Duration;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.temporal.api.enums.v1.IndexedValueType;
 import io.temporal.api.namespace.v1.NamespaceConfig;
 import io.temporal.api.operatorservice.v1.AddSearchAttributesRequest;
@@ -12,6 +15,7 @@ import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowClientOptions;
 import io.temporal.common.VersioningBehavior;
 import io.temporal.common.WorkerDeploymentVersion;
+import io.temporal.common.reporter.MicrometerClientStatsReporter;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 import io.temporal.worker.*;
@@ -21,6 +25,7 @@ import net.trellisframework.workflow.temporal.activity.DispatcherActivity;
 import net.trellisframework.workflow.temporal.activity.DispatcherStore;
 import net.trellisframework.workflow.temporal.activity.DistributedLockActivity;
 import net.trellisframework.workflow.temporal.activity.DynamicTaskActivity;
+import net.trellisframework.workflow.temporal.util.UserSearchAttributesArgs;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
 import net.trellisframework.workflow.temporal.logging.ReplayLogFilter;
 import net.trellisframework.workflow.temporal.logging.TemporalWorkerInterceptor;
@@ -28,6 +33,7 @@ import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -35,6 +41,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -61,8 +68,13 @@ public class WorkflowAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public WorkflowServiceStubs workflowServiceStubs(WorkflowProperties properties) {
-        WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder().setTarget(properties.getTarget()).build());
+    public WorkflowServiceStubs workflowServiceStubs(
+            WorkflowProperties properties, ObjectProvider<MeterRegistry> meterRegistry) {
+        WorkflowServiceStubsOptions.Builder options = WorkflowServiceStubsOptions.newBuilder().setTarget(properties.getTarget());
+        meterRegistry.ifAvailable(registry -> options.setMetricsScope(new RootScopeBuilder()
+                .reporter(new MicrometerClientStatsReporter(registry))
+                .reportEvery(Duration.ofSeconds(10))));
+        WorkflowServiceStubs stubs = WorkflowServiceStubs.newServiceStubs(options.build());
         String namespace = getNamespace(properties);
         ensureNamespaceExists(stubs, namespace, properties.getRetentionDays());
         ensureSearchAttributeExists(stubs, namespace);
@@ -117,9 +129,18 @@ public class WorkflowAutoConfiguration {
             try {
                 var stub = OperatorServiceGrpc.newBlockingStub(stubs.getRawChannel());
                 var existing = stub.listSearchAttributes(ListSearchAttributesRequest.newBuilder().setNamespace(namespace).build()).getCustomAttributesMap();
-                if (!existing.containsKey(CONCURRENCY_KEY)) {
-                    stub.addSearchAttributes(AddSearchAttributesRequest.newBuilder().setNamespace(namespace).putSearchAttributes(CONCURRENCY_KEY, IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD).build());
-                    Logger.info("Temporal", "Registered search attribute: %s", CONCURRENCY_KEY);
+                Map<String, IndexedValueType> requiredAttributes = new HashMap<>(UserSearchAttributesArgs.registeredAttributes());
+                requiredAttributes.put(CONCURRENCY_KEY, IndexedValueType.INDEXED_VALUE_TYPE_KEYWORD);
+                Map<String, IndexedValueType> missingAttributes = new HashMap<>();
+                requiredAttributes.forEach((name, type) -> {
+                    if (!existing.containsKey(name)) missingAttributes.put(name, type);
+                });
+                if (!missingAttributes.isEmpty()) {
+                    stub.addSearchAttributes(AddSearchAttributesRequest.newBuilder()
+                            .setNamespace(namespace)
+                            .putAllSearchAttributes(missingAttributes)
+                            .build());
+                    missingAttributes.keySet().forEach(name -> Logger.info("Temporal", "Registered search attribute: %s", name));
                     Threads.sleep(2000);
                 }
                 return;

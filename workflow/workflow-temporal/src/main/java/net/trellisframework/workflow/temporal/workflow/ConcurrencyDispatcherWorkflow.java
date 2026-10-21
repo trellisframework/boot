@@ -8,6 +8,7 @@ import io.temporal.workflow.DynamicSignalHandler;
 import io.temporal.workflow.Workflow;
 import net.trellisframework.core.log.Logger;
 import net.trellisframework.workflow.temporal.util.ConcurrencyArgs;
+import net.trellisframework.workflow.temporal.util.WorkflowTypeResolver;
 
 import java.time.Duration;
 import java.util.*;
@@ -110,7 +111,7 @@ public class ConcurrencyDispatcherWorkflow implements DynamicSignalHandler {
                 .setWorkflowExecutionTimeout(Duration.ofHours(24))
                 .build();
 
-        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
+        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub(WorkflowTypeResolver.forQueuedWorkflow(workArgs), opts);
         List<Object> argsWithDispatcher = new ArrayList<>(workArgs);
         argsWithDispatcher.add(dispatcherId);
         argsWithDispatcher.add(childId);

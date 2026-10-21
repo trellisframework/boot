@@ -21,6 +21,7 @@ import net.trellisframework.workflow.temporal.config.WorkflowProperties;
 import net.trellisframework.workflow.temporal.payload.Fallback;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
+import net.trellisframework.workflow.temporal.util.WorkflowTypeResolver;
 import net.trellisframework.workflow.temporal.workflow.DynamicWorkflowAction;
 import org.apache.commons.lang3.StringUtils;
 
@@ -256,7 +257,7 @@ public interface Workflows extends ActionContextProvider, WorkflowQuery {
             SearchAttributes searchAttributes = SearchAttributes.newBuilder().set(SearchAttributeKey.forKeyword(DynamicWorkflowAction.SEARCH_ATTR_CONCURRENCY_KEY), option.getConcurrencyKey()).build();
             options.setTypedSearchAttributes(searchAttributes);
         }
-        return client.newUntypedWorkflowStub("DynamicWorkflowAction", options.build());
+        return client.newUntypedWorkflowStub(WorkflowTypeResolver.forNewWorkflow(action), options.build());
     }
 
     private Object[] prepareArgs(Class<?> action, Object[] args) {
