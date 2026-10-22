@@ -63,9 +63,6 @@ public class WorkflowAutoConfiguration {
     @Value("${spring.application.mode:default}")
     private String applicationMode;
 
-    @Value("${spring.threads.virtual.enabled:false}")
-    private boolean virtualThreads;
-
     @Bean
     @ConditionalOnMissingBean
     public WorkflowServiceStubs workflowServiceStubs(
@@ -89,14 +86,14 @@ public class WorkflowAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public WorkerFactory workerFactory(WorkflowClient client) {
-        return WorkerFactory.newInstance(client, WorkerFactoryOptions.newBuilder().setUsingVirtualWorkflowThreads(virtualThreads).setWorkflowCacheSize(1000).setWorkerInterceptors(new TemporalWorkerInterceptor()).build());
+    public WorkerFactory workerFactory(WorkflowClient client, WorkflowProperties properties) {
+        return WorkerFactory.newInstance(client, WorkerFactoryOptions.newBuilder().setUsingVirtualWorkflowThreads(properties.getVirtualWorkflowThreads().isEnabled()).setWorkflowCacheSize(1000).setWorkerInterceptors(new TemporalWorkerInterceptor()).build());
     }
 
     @Bean
     public WorkerInitializer workerInitializer(WorkerFactory factory, WorkflowProperties properties, ApplicationContext ctx) {
         String taskQueue = StringUtils.defaultIfBlank(properties.getTaskQueue(), applicationName);
-        return new WorkerInitializer(factory, taskQueue, ctx, virtualThreads);
+        return new WorkerInitializer(factory, taskQueue, ctx, properties.getVirtualActivityThreads().isEnabled());
     }
 
     private String getNamespace(WorkflowProperties properties) {
@@ -153,12 +150,13 @@ public class WorkflowAutoConfiguration {
 
     public static class WorkerInitializer {
 
-        public WorkerInitializer(WorkerFactory factory, String taskQueue, ApplicationContext ctx, boolean virtualThreads) {
+        public WorkerInitializer(WorkerFactory factory, String taskQueue, ApplicationContext ctx,
+                                 boolean virtualActivityThreads) {
             Set<String> versions = collectVersions(ctx);
             if (versions.isEmpty()) {
-                createWorker(factory , taskQueue , null , ctx , virtualThreads);
+                createWorker(factory, taskQueue, null, ctx, virtualActivityThreads);
             }else {
-                versions.forEach(v -> createWorker(factory , taskQueue , v , ctx , virtualThreads));
+                versions.forEach(v -> createWorker(factory, taskQueue, v, ctx, virtualActivityThreads));
             }
             factory.start();
         }
@@ -175,10 +173,11 @@ public class WorkflowAutoConfiguration {
             return versions;
         }
 
-        private void createWorker(WorkerFactory factory, String taskQueue, String version, ApplicationContext ctx, boolean virtualThreads) {
+        private void createWorker(WorkerFactory factory, String taskQueue, String version, ApplicationContext ctx,
+                                  boolean virtualActivityThreads) {
             WorkflowProperties props = ctx.getBean(WorkflowProperties.class);
             WorkerOptions.Builder options = WorkerOptions.newBuilder()
-                    .setUsingVirtualThreads(virtualThreads)
+                    .setUsingVirtualThreads(virtualActivityThreads)
                     .setDefaultDeadlockDetectionTimeout(props.getDeadlockDetectionTimeout())
                     .setMaxConcurrentWorkflowTaskExecutionSize(props.getMaxConcurrentWorkflowTasks())
                     .setMaxConcurrentActivityExecutionSize(props.getMaxConcurrentActivities());
