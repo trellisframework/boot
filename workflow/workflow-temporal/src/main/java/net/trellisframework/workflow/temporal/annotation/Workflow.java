@@ -12,6 +12,8 @@ import java.lang.annotation.Target;
 @Component
 public @interface Workflow {
 
+    String name() default "";
+
     String taskQueue() default "";
 
     String executionTimeout() default "";

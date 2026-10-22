@@ -10,6 +10,7 @@ import net.trellisframework.core.log.Logger;
 import net.trellisframework.workflow.temporal.activity.DispatcherStore;
 import net.trellisframework.workflow.temporal.activity.DispatcherStore.Claim;
 import net.trellisframework.workflow.temporal.util.ConcurrencyArgs;
+import net.trellisframework.workflow.temporal.util.WorkflowTypeResolver;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -73,7 +74,7 @@ public class ConcurrencyTickerWorkflow implements DynamicSignalHandler {
                 .setWorkflowExecutionTimeout(Duration.ofHours(24))
                 .build();
 
-        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", opts);
+        ChildWorkflowStub stub = Workflow.newUntypedChildWorkflowStub(WorkflowTypeResolver.forQueuedWorkflow(workArgs), opts);
         List<Object> childArgs = new ArrayList<>(workArgs);
         childArgs.add(SLOT_MARKER);
         childArgs.add(claim.key);

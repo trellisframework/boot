@@ -16,6 +16,7 @@ import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.activity.DispatcherActivity;
 import net.trellisframework.workflow.temporal.util.ConcurrencyArgs;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
+import net.trellisframework.workflow.temporal.util.WorkflowTypeResolver;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -280,7 +281,7 @@ public interface WorkflowContextProvider extends ProcessContextProvider {
         Optional.ofNullable(annotation).map(net.trellisframework.workflow.temporal.annotation.Workflow::executionTimeout).map(StringUtil::nullIfBlank).map(DurationParser::parse).ifPresent(builder::setWorkflowExecutionTimeout);
         Optional.ofNullable(annotation).map(net.trellisframework.workflow.temporal.annotation.Workflow::taskTimeout).map(StringUtil::nullIfBlank).map(DurationParser::parse).ifPresent(builder::setWorkflowTaskTimeout);
         Optional.ofNullable(annotation).map(net.trellisframework.workflow.temporal.annotation.Workflow::runTimeout).map(StringUtil::nullIfBlank).map(DurationParser::parse).ifPresent(builder::setWorkflowRunTimeout);
-         return Workflow.newUntypedChildWorkflowStub("DynamicWorkflowAction", builder.build());
+        return Workflow.newUntypedChildWorkflowStub(WorkflowTypeResolver.forChildWorkflow(workflowClass), builder.build());
     }
 
     private java.lang.reflect.Type getReturnType(Class<?> clazz) {
