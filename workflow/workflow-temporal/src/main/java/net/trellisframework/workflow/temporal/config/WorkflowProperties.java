@@ -15,11 +15,24 @@ public class WorkflowProperties {
     private int maxConcurrentWorkflowTasks = 200;
     private int maxConcurrentActivities = 200;
     private long deadlockDetectionTimeout = 120000;
+    private Threads threads = new Threads();
 
     private ConcurrencyBackend concurrencyBackend = ConcurrencyBackend.MEMORY;
 
     public enum ConcurrencyBackend {
         MEMORY, REDIS
+    }
+
+    @Setter
+    @Getter
+    public static class Threads {
+        private VirtualThreads virtual = new VirtualThreads();
+    }
+
+    @Setter
+    @Getter
+    public static class VirtualThreads {
+        private boolean enabled = false;
     }
 
 }
