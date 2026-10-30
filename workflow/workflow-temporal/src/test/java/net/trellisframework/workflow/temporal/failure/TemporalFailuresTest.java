@@ -6,7 +6,10 @@ import io.temporal.failure.ApplicationFailure;
 import io.temporal.failure.TimeoutFailure;
 import io.temporal.failure.TemporalFailure;
 import io.temporal.workflow.WorkflowInfo;
+import net.trellisframework.http.exception.HttpErrorMessage;
+import net.trellisframework.http.exception.HttpException;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -106,6 +109,27 @@ class TemporalFailuresTest {
         assertSame(cause, failure.getCause());
         assertEquals(new TemporalFailureDetails("wf-1", "run-1", "OrderFlow", "act-7", "ChargeCard", 3, IllegalStateException.class.getName()), details);
     }
+
+    @Test
+    void activityFailureKeepsGenericTemporalMessageAndCarriesReadableHttpErrorSeparately() {
+        var error = new HttpErrorMessage();
+        error.setHttpStatus(HttpStatus.PAYMENT_REQUIRED);
+        error.setStatus(402);
+        error.setError("Sorry, you don’t have enough credit");
+        HttpException cause = new HttpException(error);
+
+        ApplicationFailure failure = TemporalFailures.activityFailure(cause, activity());
+
+        assertEquals(TemporalFailures.ACTIVITY_FAILED, failure.getOriginalMessage());
+        assertEquals("Sorry, you don’t have enough credit", TemporalFailures.message(failure));
+        assertEquals("Sorry, you don’t have enough credit", TemporalFailures.describeFailure(
+                new RuntimeException("workflow failed", failure), "prospect timed out"));
+        assertEquals(HttpStatus.PAYMENT_REQUIRED, TemporalFailures.httpErrorMessage(failure).orElseThrow().getHttpStatus());
+        assertEquals(402, TemporalFailures.httpErrorMessage(failure).orElseThrow().getStatus());
+        assertSame(cause, failure.getCause());
+        assertEquals(TemporalFailureDetails.class,
+                failure.getDetails().get(0, TemporalFailureDetails.class).getClass());
+        }
 
     @Test
     void workflowDetailsReuseTheFailingActivityDetails() {

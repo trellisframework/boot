@@ -4,6 +4,8 @@ import io.temporal.activity.ActivityInfo;
 import io.temporal.failure.ApplicationFailure;
 import io.temporal.failure.TemporalFailure;
 import io.temporal.workflow.WorkflowInfo;
+import net.trellisframework.http.exception.HttpErrorMessage;
+import net.trellisframework.http.exception.HttpException;
 import net.trellisframework.util.json.JsonUtil;
 import org.slf4j.MDC;
 
@@ -30,6 +32,9 @@ public final class TemporalFailures {
         On the nect iteration this will be removed.
      */
     public static String message(ApplicationFailure failure) {
+        var httpError = httpErrorMessage(failure).map(HttpErrorMessage::getError).orElse(null);
+        if (httpError != null && !httpError.isBlank())
+            return httpError;
         var message = failure.getOriginalMessage();
         if (message == null || !message.startsWith("{"))
             return message;
@@ -37,6 +42,17 @@ public final class TemporalFailures {
                 .map(json -> json.get("error"))
                 .map(String::valueOf)
                 .orElse(message);
+    }
+
+
+    public static Optional<HttpErrorMessage> httpErrorMessage(ApplicationFailure failure) {
+        if (failure.getDetails().getSize() < 2)
+            return Optional.empty();
+        try {
+            return Optional.ofNullable(failure.getDetails().get(1, HttpErrorMessage.class));
+        } catch (RuntimeException ignored) {
+            return Optional.empty();
+        }
     }
 
     public static String describeFailure(Throwable error, String temporalFailureMessage) {
@@ -51,6 +67,8 @@ public final class TemporalFailures {
     public static ApplicationFailure activityFailure(Throwable cause, ActivityInfo info) {
         var details = new TemporalFailureDetails(info.getWorkflowId(), info.getRunId(), info.getWorkflowType(),
                 info.getActivityId(), info.getActivityType(), info.getAttempt(), cause.getClass().getName());
+        if (cause instanceof HttpException http && http.getErrorMessage() != null)
+            return ApplicationFailure.newFailureWithCause(ACTIVITY_FAILED, details.exception(), cause, details, http.getErrorMessage());
         return ApplicationFailure.newFailureWithCause(ACTIVITY_FAILED, details.exception(), cause, details);
     }
 

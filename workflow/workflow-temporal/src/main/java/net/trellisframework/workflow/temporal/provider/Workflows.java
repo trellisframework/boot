@@ -18,6 +18,7 @@ import net.trellisframework.util.environment.EnvironmentUtil;
 import net.trellisframework.workflow.temporal.action.*;
 import net.trellisframework.workflow.temporal.annotation.Workflow;
 import net.trellisframework.workflow.temporal.config.WorkflowProperties;
+import net.trellisframework.workflow.temporal.failure.TemporalFailures;
 import net.trellisframework.workflow.temporal.payload.Fallback;
 import net.trellisframework.workflow.temporal.payload.WorkflowOption;
 import net.trellisframework.workflow.temporal.util.TypeResolver;
@@ -214,7 +215,7 @@ public interface Workflows extends ActionContextProvider, WorkflowQuery {
         while (cause != null) {
             if (cause instanceof ApplicationFailure af) {
                 String exceptionType = af.getType();
-                String message = af.getOriginalMessage();
+                String message = TemporalFailures.message(af);
                 try {
                     Class<?> exceptionClass = Class.forName(exceptionType);
                     if (RuntimeException.class.isAssignableFrom(exceptionClass)) {
