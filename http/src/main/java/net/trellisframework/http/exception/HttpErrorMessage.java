@@ -50,7 +50,9 @@ public class HttpErrorMessage implements Payload {
         this.httpStatus = httpStatus;
         this.timestamp = timestamp;
         this.status = Integer.valueOf(String.valueOf(httpStatus.value()) + (status == null ? StringUtils.EMPTY : status));
-        this.error = StringUtils.isEmpty(translatedMessage) ? message.replace('_', ' ').toLowerCase() : translatedMessage;
+        boolean isKey = originalMessage.contains("_") || !StringUtils.containsWhitespace(message);
+        String untranslatedMessage = isKey ? message.replace('_', ' ').toLowerCase() : message;
+        this.error = StringUtils.isEmpty(translatedMessage) ? untranslatedMessage : translatedMessage;
         this.path = path;
     }
 
