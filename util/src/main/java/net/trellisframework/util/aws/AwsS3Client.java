@@ -212,6 +212,8 @@ public class AwsS3Client {
                 x -> builder.endpointOverride(URI.create(getEndpointUrl(x, property.getValue().getRegion()))).region(Region.of(Optional.ofNullable(property.getValue().getRegion()).orElse("us-east-1"))),
                 () -> Optional.ofNullable(property.getValue().getRegion()).ifPresent(r -> builder.region(Region.of(r)))
         );
+        Optional.ofNullable(property.getValue().getRequestChecksumCalculation()).ifPresent(builder::requestChecksumCalculation);
+        Optional.ofNullable(property.getValue().getResponseChecksumValidation()).ifPresent(builder::responseChecksumValidation);
         return builder.build();
     }
 

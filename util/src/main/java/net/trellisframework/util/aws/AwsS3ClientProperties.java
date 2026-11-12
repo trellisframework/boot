@@ -5,6 +5,8 @@ import lombok.Data;
 import net.trellisframework.core.payload.Payload;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +26,8 @@ public class AwsS3ClientProperties {
         private String region;
         private Credential credential;
         private Boolean pathStyle;
+        private RequestChecksumCalculation requestChecksumCalculation;
+        private ResponseChecksumValidation responseChecksumValidation;
     }
 
     @Data
