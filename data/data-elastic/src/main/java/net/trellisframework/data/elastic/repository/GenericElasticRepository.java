@@ -1,5 +1,6 @@
 package net.trellisframework.data.elastic.repository;
 
+import co.elastic.clients.elasticsearch._types.ErrorCause;
 import co.elastic.clients.elasticsearch._types.InlineGet;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 @NoRepositoryBean
 public interface GenericElasticRepository<TEntity> extends GenericRepository, EsModelMapper {
@@ -175,9 +177,12 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
         if (responses == null) return;
         for (var item : responses) {
             if (item.isFailure()) {
-                if (!"task_cancelled_exception".equals(item.failure().error().type()))
-                    Logger.error("GenericElasticRepository::msearch", "msearch item failed: " + JsonpUtils.toString(item.failure()));
-                throw new ServiceUnavailableException(item.failure().error().reason());
+                ErrorCause error = item.failure().error();
+                Optional<ErrorCause> cancelled = Stream.concat(Stream.of(error), error.rootCause().stream()).filter(x -> "task_cancelled_exception".equals(x.type())).findFirst();
+                if (cancelled.isPresent())
+                    throw new ServiceUnavailableException(cancelled.get().reason());
+                Logger.error("GenericElasticRepository::msearch", "msearch item failed: " + JsonpUtils.toString(item.failure()));
+                throw new ServiceUnavailableException(error.reason());
             }
         }
     }
