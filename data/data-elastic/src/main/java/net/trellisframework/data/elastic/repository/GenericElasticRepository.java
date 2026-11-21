@@ -175,7 +175,8 @@ public interface GenericElasticRepository<TEntity> extends GenericRepository, Es
         if (responses == null) return;
         for (var item : responses) {
             if (item.isFailure()) {
-                Logger.error("GenericElasticRepository::msearch", "msearch item failed: " + JsonpUtils.toString(item.failure()));
+                if (!"task_cancelled_exception".equals(item.failure().error().type()))
+                    Logger.error("GenericElasticRepository::msearch", "msearch item failed: " + JsonpUtils.toString(item.failure()));
                 throw new ServiceUnavailableException(item.failure().error().reason());
             }
         }
